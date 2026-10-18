@@ -1,0 +1,19 @@
+# Local virtual environment and caches
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Development-only files, not needed in the production image
+tests/
+requirements-dev.txt
+pytest.ini
+
+# Secrets and local data must never end up in an image
+.env
+.env.*
+data/
+
+# Docker files themselves
+Dockerfile
+.dockerignore
