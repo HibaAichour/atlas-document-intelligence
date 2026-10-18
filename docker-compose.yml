@@ -1,0 +1,17 @@
+# ATLAS local stack: FastAPI backend + React frontend served by Nginx.
+# Ollama is NOT part of this stack: it runs natively on the Mac
+# (GPU access, lower memory use), see docs/03_decisions.md.
+name: atlas
+
+services:
+  backend:
+    build: ./backend
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
