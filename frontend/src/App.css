@@ -1,0 +1,46 @@
+/* Styles for the App component. */
+.page {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 4rem 1.5rem;
+}
+
+.page h1 {
+  margin: 0;
+  font-size: 2.5rem;
+  letter-spacing: -0.02em;
+}
+
+.subtitle {
+  margin: 0.25rem 0 0;
+  color: #52606d;
+}
+
+.status-card {
+  margin-top: 2rem;
+  padding: 1.5rem;
+  background-color: #ffffff;
+  border: 1px solid #e4e7eb;
+  border-radius: 12px;
+}
+
+.status-card h2 {
+  margin: 0 0 0.5rem;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #52606d;
+}
+
+.status {
+  margin: 0;
+  font-weight: 600;
+}
+
+.status-online {
+  color: #1a7f37;
+}
+
+.status-offline {
+  color: #c62828;
+}
