@@ -40,6 +40,10 @@ class Settings(BaseSettings):
     # Storage: SQLite database and uploaded files (relative to the working directory)
     data_dir: Path = Path("data")
 
+    # OCR (Tesseract): language pack, e.g. "eng" (must be installed with Tesseract)
+    ocr_language: str = "eng"
+    ocr_timeout_seconds: float = 60.0
+
 
 @lru_cache
 def get_settings() -> Settings:
