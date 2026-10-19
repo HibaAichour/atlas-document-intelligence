@@ -11,6 +11,30 @@ Format : une entrée par décision, la plus récente en haut.
 
 ---
 
+## [2026-10-18] Docker Compose : Nginx seule porte d'entrée, port 8080
+- **Contexte** : il faut lancer backend et frontend ensemble, comme en production.
+- **Décision** : deux services Compose. Seul le frontend (Nginx) publie un port sur la machine (`8080:80`) ; le backend n'est joignable que par le réseau interne, via `http://backend:8000`. Ollama reste hors de Compose.
+- **Alternatives écartées** : publier aussi le port du backend (deux portes d'entrée, moins sûr) ; port 80 (droits et conflits possibles sur Mac).
+- **Conséquences** : même architecture qu'en production. Pour appeler l'API directement en local, on passe par `localhost:8080/api/...` ou par le serveur de développement.
+
+## [2026-10-18] Image frontend en deux étapes (Node puis Nginx)
+- **Contexte** : en production, une application React n'est qu'un ensemble de fichiers statiques.
+- **Décision** : construction avec `node:24-alpine` (LTS, `npm ci`), puis service par `nginx:stable-alpine`, qui fait aussi le proxy `/api` vers le backend (équivalent du proxy Vite).
+- **Alternatives écartées** : servir le frontend avec Node ou le serveur Vite (image de plus de 500 Mo, outil de développement en production).
+- **Conséquences** : image finale légère, indépendante de la version de Node installée localement (25, non LTS).
+
+## [2026-10-18] Image backend : python:3.13-slim, utilisateur sans privilèges
+- **Contexte** : l'image du backend doit être légère, reproductible et sûre.
+- **Décision** : base `python:3.13-slim` (même version qu'en local), dépendances de production uniquement, `requirements.txt` copié avant le code pour profiter du cache, exécution sous un utilisateur `atlas` non root, `.dockerignore` excluant `.venv`, tests et secrets.
+- **Alternatives écartées** : image `python:3.13` complète (environ 1 Go) ; exécution en root (risque inutile).
+- **Conséquences** : reconstruction en quelques secondes quand seul le code change. Tesseract sera ajouté à l'image à l'étape 4.
+
+## [2026-10-18] Tests : httpx2 à la place de httpx
+- **Contexte** : Starlette (base de FastAPI) signale que l'usage de `httpx` par son `TestClient` est déprécié et recommande `httpx2`.
+- **Décision** : `httpx2` dans `requirements-dev.txt`, `httpx` retiré après vérification que le test passe sans lui.
+- **Alternatives écartées** : ignorer l'avertissement (risque de casse lors d'une future mise à jour).
+- **Conséquences** : suite de tests sans avertissement.
+
 ## [2026-10-18] Frontend : appels relatifs `/api`, sans CORS
 - **Contexte** : le frontend doit appeler le backend en développement, dans Docker et en ligne.
 - **Décision** : le frontend appelle toujours `/api/...` sur sa propre adresse. En développement, le proxy de Vite redirige vers le backend ; dans Docker, c'est Nginx.
