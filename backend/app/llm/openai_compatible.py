@@ -4,6 +4,7 @@ from typing import Any
 
 import httpx2
 
+from app.core.http_errors import describe_http_error
 from app.llm.base import ChatMessage, LLMError, LLMProvider
 
 
@@ -51,7 +52,7 @@ class OpenAICompatibleProvider(LLMProvider):
             response.raise_for_status()
             data = response.json()
         except httpx2.HTTPError as exc:
-            raise LLMError(f"LLM API request failed: {exc}") from exc
+            raise LLMError(f"LLM API request failed: {describe_http_error(exc)}") from exc
         except ValueError as exc:
             raise LLMError("LLM API returned a response that is not valid JSON") from exc
 

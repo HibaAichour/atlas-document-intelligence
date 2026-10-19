@@ -5,6 +5,8 @@ from typing import Any
 
 import httpx2
 
+from app.core.http_errors import describe_http_error
+
 
 class EmbeddingError(Exception):
     """Raised when a provider cannot return embeddings."""
@@ -33,7 +35,7 @@ def _post_json(
         response.raise_for_status()
         return response.json()
     except httpx2.HTTPError as exc:
-        raise EmbeddingError(f"Embedding request failed: {exc}") from exc
+        raise EmbeddingError(f"Embedding request failed: {describe_http_error(exc)}") from exc
     except ValueError as exc:
         raise EmbeddingError("Embedding API returned a response that is not valid JSON") from exc
 
