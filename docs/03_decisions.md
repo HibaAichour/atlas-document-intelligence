@@ -10,6 +10,35 @@ Format : une entrée par décision, la plus récente en haut.
 - **Conséquences** : impact sur le projet, lien avec la V2
 
 ---
+## [2026-10-19] Modèle Groq pour la démo : openai/gpt-oss-20b
+- **Contexte** : `llama-3.3-70b-versatile` n'est plus proposé par Groq (erreur 404 `model_not_found`). La liste des modèles a été obtenue via l'endpoint `/models`.
+- **Décision** : `openai/gpt-oss-20b`, testé avec succès (réponse en environ 1 s).
+- **Alternatives écartées** : `openai/gpt-oss-120b` (solution de repli si la qualité ne suffit pas) ; `qwen/qwen3.8-27b` (comportement non vérifié).
+- **Conséquences** : le catalogue de Groq change souvent ; le modèle est une simple variable d'environnement, à revérifier avant la démo (étape 12).
+
+## [2026-10-19] Embeddings de la démo : provider générique, fournisseur choisi à l'étape 12
+- **Contexte** : Groq ne propose pas d'embeddings ; il faut un fournisseur séparé pour la démo en ligne.
+- **Décision** : `OpenAICompatibleEmbeddingProvider` (endpoint standard `/embeddings`), testé dès maintenant contre l'endpoint `/v1` d'Ollama. Le fournisseur réel sera choisi à l'étape 12.
+- **Alternatives écartées** : choisir maintenant un fournisseur dont les conditions peuvent changer d'ici le déploiement.
+- **Conséquences** : génération et embeddings se configurent indépendamment ; changer de fournisseur revient à changer trois variables.
+
+## [2026-10-19] Client HTTP : httpx2
+- **Contexte** : le backend doit appeler Ollama et les API distantes en production.
+- **Décision** : `httpx2` (successeur de `httpx`, même auteur, recommandé par Starlette), passé dans `requirements.txt`.
+- **Alternatives écartées** : `requests` (synchrone uniquement, bibliothèque de plus pour simuler les réponses) ; SDK `openai` (lourd, ramène l'ancien `httpx`).
+- **Conséquences** : `MockTransport` permet de tester les providers sans réseau ; l'asynchrone reste possible pour la V2.
+
+## [2026-10-19] Configuration : pydantic-settings, secrets hors de Git
+- **Contexte** : la configuration doit changer entre le local et la démo, sans toucher au code, et les clés ne doivent jamais être publiées.
+- **Décision** : classe `Settings` validée (`Literal` pour les providers, `SecretStr` pour les clés) ; `.env` ignoré par Git, `.env.example` publié ; règle `.claude/settings.json` interdisant à Claude Code de lire `.env`. Une clé vide est traitée comme absente.
+- **Alternatives écartées** : lecture directe de `os.environ` (aucune validation, erreurs découvertes trop tard).
+- **Conséquences** : une faute de frappe dans la configuration bloque le démarrage avec un message clair ; les clés n'apparaissent pas dans les journaux.
+
+## [2026-10-19] Providers testés sans réseau, plus un script de vérification réelle
+- **Contexte** : les tests doivent rester rapides et fiables, mais il faut aussi prouver le fonctionnement avec de vrais modèles.
+- **Décision** : tests pytest avec `httpx2.MockTransport` (requêtes, réponses et erreurs simulées) ; script `scripts/check_providers.py` lancé à la main contre Ollama et Groq. Les messages d'erreur incluent la raison donnée par le serveur.
+- **Alternatives écartées** : tests appelant les vraies API (lents, dépendants du réseau et du quota).
+- **Conséquences** : 24 tests en moins d'une seconde ; le script valide une configuration réelle avant une démo.
 
 ## [2026-10-18] Docker Compose : Nginx seule porte d'entrée, port 8080
 - **Contexte** : il faut lancer backend et frontend ensemble, comme en production.

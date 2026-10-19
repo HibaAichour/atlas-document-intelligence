@@ -11,9 +11,9 @@
 | Base vectorielle | Chroma en mode embarqué (`PersistentClient`, sans serveur) | Qdrant |
 | OCR | Tesseract (via `pytesseract`), langue `eng` | PaddleOCR possible |
 | LLM local | Ollama natif sur le Mac, `qwen2.5:3b` (confirmé à l'étape 0) | |
-| LLM démo en ligne | API compatible OpenAI, Groq par défaut | |
+| LLM démo en ligne | API compatible OpenAI, Groq par défaut (`openai/gpt-oss-20b`) | |
 | Embeddings local | `nomic-embed-text` via Ollama | |
-| Embeddings démo en ligne | À choisir à l'étape 3, derrière `EmbeddingProvider` | |
+| Embeddings démo en ligne | Provider compatible OpenAI prêt ; fournisseur choisi à l'étape 12 | |
 | Export | python-docx, python-pptx | |
 | Déploiement | Docker Compose (local), plateforme en ligne à confirmer à l'étape 12 | |
 
@@ -76,7 +76,7 @@ atlas/
 │   │   ├── retrieval/    # EmbeddingProvider, VectorStore, retriever
 │   │   ├── export/       # docx, pptx
 │   │   ├── db/           # models, repositories (SQLite)
-│   │   └── core/         # config, logging
+│   │   └── core/         # config, provider factories, HTTP errors
 │   └── tests/
 ├── frontend/
 │   └── src/
@@ -142,12 +142,12 @@ Chaque exécution d'agent est enregistrée (nom, durée, statut) dans le message
 | Variable | Exemple local | Exemple démo en ligne |
 |---|---|---|
 | `LLM_PROVIDER` | `ollama` | `openai_compatible` |
-| `LLM_MODEL` | `qwen2.5:3b` | modèle choisi chez le fournisseur |
+| `LLM_MODEL` | `qwen2.5:3b` | `openai/gpt-oss-20b` (Groq) |
 | `LLM_BASE_URL` | `http://localhost:11434` | URL de l'API du fournisseur |
 | `LLM_API_KEY` | (vide) | secret de la plateforme |
 | `LLM_NUM_CTX` | `4096` | (ignoré) |
-| `EMBEDDING_PROVIDER` | `ollama` | à définir à l'étape 3 |
-| `EMBEDDING_MODEL` | `nomic-embed-text` | à définir à l'étape 3 |
+| `EMBEDDING_PROVIDER` | `ollama` | à définir à l'étape 12 |
+| `EMBEDDING_MODEL` | `nomic-embed-text` | à définir à l'étape 12 |
 | `DATA_DIR` | `./data` | `/tmp/atlas` ou volume |
 
 ## 11. MVP et scénarios de démo
@@ -174,5 +174,5 @@ Le MVP est atteint quand ces quatre scénarios fonctionnent de bout en bout, en 
 - Traitement synchrone : l'ingestion d'un gros document bloque la requête (asynchrone prévu en V2).
 
 ## 13. Points ouverts
-- **Embeddings en ligne** : API d'embeddings ou petit modèle léger dans le conteneur. Décision à l'étape 3.
+- **Embeddings en ligne** : le code est prêt (provider compatible OpenAI) ; le fournisseur sera choisi à l'étape 12, Groq n'en proposant pas.
 - **Plateforme de déploiement** : les conditions de Hugging Face Spaces et de Railway sont à revérifier à l'étape 12. L'image doit rester légère (aucun modèle local en production) pour être compatible avec une offre modeste.

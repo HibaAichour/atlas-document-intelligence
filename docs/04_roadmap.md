@@ -23,9 +23,9 @@ Cocher les cases au fur et à mesure. Durée totale estimée : 35 à 45 jours de
 - **Fin** : `docker compose up` affiche le frontend connecté au backend
 
 ## Étape 3 : Couche LLM abstraite (1 à 2 jours)
-- [ ] Interface `LLMProvider` + Ollama + API externe
-- [ ] Interface embeddings
-- [ ] Sélection par variable d'environnement
+- [x] Interface `LLMProvider` + Ollama + API externe
+- [x] Interface embeddings
+- [x] Sélection par variable d'environnement
 - **Fin** : test passant avec les deux providers
 
 ## Étape 4 : Upload, parsing, OCR (3 à 4 jours)
