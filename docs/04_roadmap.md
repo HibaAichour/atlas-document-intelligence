@@ -16,10 +16,10 @@ Cocher les cases au fur et à mesure. Durée totale estimée : 35 à 45 jours de
 - **Fin** : architecture et décisions écrites
 
 ## Étape 2 : Squelette du projet (2 jours)
-- [ ] Dépôt GitHub, structure backend/ et frontend/
-- [ ] FastAPI avec `/health`
-- [ ] React + TypeScript + Vite appelant le backend
-- [ ] docker-compose.yml
+- [x] Dépôt GitHub, structure backend/ et frontend/
+- [x] FastAPI avec `/health`
+- [x] React + TypeScript + Vite appelant le backend
+- [x] docker-compose.yml
 - **Fin** : `docker compose up` affiche le frontend connecté au backend
 
 ## Étape 3 : Couche LLM abstraite (1 à 2 jours)
