@@ -8,7 +8,6 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.config import get_settings
 from app.db.models import Document, DocumentStatus, Page
 from app.db.repositories import MAX_ERROR_LENGTH, DocumentRepository
 from app.db.session import DATABASE_FILENAME
@@ -142,19 +141,10 @@ def test_foreign_keys_are_enforced(db_session: Session) -> None:
         db_session.commit()
 
 
-def test_app_startup_creates_the_database(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_app_startup_creates_the_database(data_dir: Path) -> None:
     """Starting the application creates the data folder and the SQLite file."""
-    data_dir = tmp_path / "atlas-data"
-    monkeypatch.setenv("DATA_DIR", str(data_dir))
-    get_settings.cache_clear()
-
-    try:
-        # Using the client as a context manager runs the startup code.
-        with TestClient(app) as client:
-            assert client.get("/api/health").status_code == 200
-    finally:
-        get_settings.cache_clear()
+    # Using the client as a context manager runs the startup code.
+    with TestClient(app) as client:
+        assert client.get("/api/health").status_code == 200
 
     assert (data_dir / DATABASE_FILENAME).is_file()

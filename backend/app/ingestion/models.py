@@ -43,3 +43,6 @@ class ParseOptions:
     min_text_chars: int = 20
     # Processing is synchronous in V1, so very long documents are refused.
     max_pages: int = 50
+    # OCR takes a few seconds per page, so documents with many scanned pages
+    # are refused before any OCR starts.
+    max_ocr_pages: int = 10

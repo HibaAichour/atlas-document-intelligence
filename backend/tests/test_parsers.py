@@ -1,6 +1,6 @@
 """Tests for the PDF, DOCX, PPTX and image parsers.
 
-Every test builds its own small document, so no binary file is stored in Git.
+Every test builds its own small document (see tests/builders.py).
 Tests marked "needs_tesseract" are skipped where Tesseract is not installed.
 """
 
@@ -9,84 +9,20 @@ from pathlib import Path
 import docx
 import pytest
 from fpdf import FPDF
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image
 from pptx import Presentation
 from pptx.util import Inches
 
 from app.ingestion.models import FileType, PageText, ParseError, ParseOptions
 from app.ingestion.ocr import is_tesseract_available
 from app.ingestion.parsing import parse_document
+from tests.builders import CONTRACT_TEXT, make_docx, make_pdf, make_pptx, make_scan
 
 needs_tesseract = pytest.mark.skipif(
     not is_tesseract_available(), reason="Tesseract is not installed"
 )
 
 OPTIONS = ParseOptions()
-CONTRACT_TEXT = "The termination notice period is thirty (30) days."
-
-
-# --- Helpers that build test documents ---------------------------------------
-
-
-def make_scan(path: Path, text: str) -> Path:
-    """Save a PNG that looks like a clean scan of printed text."""
-    image = Image.new("RGB", (1600, 400), "white")
-    draw = ImageDraw.Draw(image)
-    draw.text((60, 150), text, fill="black", font=ImageFont.load_default(size=56))
-    image.save(path)
-    return path
-
-
-def make_pdf(path: Path, pages: list[str | Path]) -> Path:
-    """Build a PDF: a str becomes a text page, a Path becomes an image-only page."""
-    pdf = FPDF()
-    pdf.set_font("helvetica", size=12)
-    for content in pages:
-        pdf.add_page()
-        if isinstance(content, Path):
-            pdf.image(str(content), x=10, y=10, w=190)
-        else:
-            pdf.multi_cell(0, 8, content)
-    pdf.output(str(path))
-    return path
-
-
-def make_docx(path: Path) -> Path:
-    """Build a DOCX with an introduction, two headings and a table."""
-    document = docx.Document()
-    document.add_paragraph("Service Agreement between Acme Corp and Beta LLC.")
-    document.add_heading("1. Term", level=1)
-    document.add_paragraph("This agreement lasts twelve months.")
-    document.add_heading("2. Fees", level=1)
-    table = document.add_table(rows=2, cols=2)
-    table.cell(0, 0).text = "Service"
-    table.cell(0, 1).text = "Monthly fee"
-    table.cell(1, 0).text = "Support"
-    table.cell(1, 1).text = "USD 1,200"
-    document.save(str(path))
-    return path
-
-
-def make_pptx(path: Path) -> Path:
-    """Build a PPTX with a title slide, a slide with a table, and an empty slide."""
-    presentation = Presentation()
-    title_slide = presentation.slides.add_slide(presentation.slide_layouts[0])
-    title_slide.shapes.title.text = "Quarterly Business Review"
-    title_slide.placeholders[1].text = "Q3 2026"
-
-    blank_layout = presentation.slide_layouts[6]
-    table_slide = presentation.slides.add_slide(blank_layout)
-    heading = table_slide.shapes.add_textbox(Inches(1), Inches(0.5), Inches(6), Inches(1))
-    heading.text_frame.text = "Revenue by region"
-    rows = [("Region", "Revenue"), ("EMEA", "USD 4.2M")]
-    table = table_slide.shapes.add_table(2, 2, Inches(1), Inches(2), Inches(6), Inches(1.5)).table
-    for row_index, row in enumerate(rows):
-        for column_index, value in enumerate(row):
-            table.cell(row_index, column_index).text = value
-
-    presentation.slides.add_slide(blank_layout)  # empty slide
-    presentation.save(str(path))
-    return path
 
 
 # --- PDF ---------------------------------------------------------------------
@@ -123,6 +59,22 @@ def test_pdf_over_the_page_limit_is_refused(tmp_path: Path) -> None:
 
     with pytest.raises(ParseError, match="3 pages; the limit is 2"):
         parse_document(pdf, FileType.PDF, ParseOptions(max_pages=2))
+
+
+def test_pdf_with_too_many_scanned_pages_is_refused_before_ocr(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The OCR limit is checked first, so no time is spent on a refused file."""
+    scan = make_scan(tmp_path / "scan.png", "Scanned page")
+    pdf = make_pdf(tmp_path / "scans.pdf", [scan, scan])
+
+    def fail_if_called(*args: object, **kwargs: object) -> str:
+        raise AssertionError("OCR must not run")
+
+    monkeypatch.setattr("app.ingestion.pdf_parser.ocr_image", fail_if_called)
+
+    with pytest.raises(ParseError, match="2 scanned pages that need OCR; the limit is 1"):
+        parse_document(pdf, FileType.PDF, ParseOptions(max_ocr_pages=1))
 
 
 def test_damaged_pdf_raises_parse_error(tmp_path: Path) -> None:

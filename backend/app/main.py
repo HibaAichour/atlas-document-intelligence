@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import APIRouter, FastAPI
 
+from app.api.documents import router as documents_router
 from app.core.config import get_settings
 from app.db.session import create_db_engine, create_session_factory, init_db, sqlite_url
 
@@ -40,6 +41,8 @@ def health() -> dict[str, str]:
     """Return a minimal liveness status used by the frontend and Docker."""
     return {"status": "ok", "version": APP_VERSION}
 
+
+api_router.include_router(documents_router)
 
 # Routes must be declared on the router before it is included in the app.
 app.include_router(api_router)

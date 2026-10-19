@@ -44,6 +44,11 @@ class Settings(BaseSettings):
     ocr_language: str = "eng"
     ocr_timeout_seconds: float = 60.0
 
+    # Upload limits (processing is synchronous in V1, so they stay modest)
+    max_upload_mb: int = 20
+    max_pages: int = 50
+    max_ocr_pages: int = 10
+
 
 @lru_cache
 def get_settings() -> Settings:
