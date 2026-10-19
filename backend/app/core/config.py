@@ -1,6 +1,7 @@
 """Application settings, loaded from environment variables and the .env file."""
 
 from functools import lru_cache
+from pathlib import Path
 from typing import Literal
 
 from pydantic import SecretStr
@@ -35,6 +36,9 @@ class Settings(BaseSettings):
     embedding_model: str = "nomic-embed-text"
     embedding_base_url: str = "http://127.0.0.1:11434"
     embedding_api_key: SecretStr | None = None
+
+    # Storage: SQLite database and uploaded files (relative to the working directory)
+    data_dir: Path = Path("data")
 
 
 @lru_cache

@@ -16,8 +16,11 @@ RUN pip install -r requirements.txt
 # Then copy the application code.
 COPY app ./app
 
-# Run as a non-root user for safety.
-RUN useradd --create-home atlas
+# Run as a non-root user for safety. That user must own the data folder,
+# where the SQLite database and uploaded files are written.
+RUN useradd --create-home atlas \
+    && mkdir -p /app/data \
+    && chown atlas:atlas /app/data
 USER atlas
 
 EXPOSE 8000
