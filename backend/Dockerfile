@@ -9,7 +9,17 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Install dependencies first, so this layer is cached between code changes.
+# System dependencies: Tesseract OCR engine and its English language data.
+# Installed before the Python dependencies because they change rarely,
+# so Docker keeps this layer in cache. --no-install-recommends and the
+# removal of the apt lists keep the image small.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        tesseract-ocr \
+        tesseract-ocr-eng \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies first, so this layer is cached between code changes.
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 
@@ -18,6 +28,7 @@ COPY app ./app
 
 # Run as a non-root user for safety. That user must own the data folder,
 # where the SQLite database and uploaded files are written.
+# A named volume mounted on /app/data inherits this ownership on first use.
 RUN useradd --create-home atlas \
     && mkdir -p /app/data \
     && chown atlas:atlas /app/data

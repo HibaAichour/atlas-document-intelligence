@@ -7,6 +7,14 @@ services:
   backend:
     build: ./backend
     restart: unless-stopped
+    environment:
+      # Where the SQLite database and uploaded files are stored.
+      # Must match the mount point of the volume below.
+      DATA_DIR: /app/data
+    volumes:
+      # Named volume: data survives container restarts and rebuilds.
+      # Reset everything with: docker compose down -v
+      - backend-data:/app/data
 
   frontend:
     build: ./frontend
@@ -15,3 +23,6 @@ services:
     depends_on:
       - backend
     restart: unless-stopped
+
+volumes:
+  backend-data:
