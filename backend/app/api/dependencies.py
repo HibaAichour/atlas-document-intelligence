@@ -1,11 +1,13 @@
-"""Objects that FastAPI gives to the routes (database session, indexer)."""
+"""Objects that FastAPI gives to the routes (database session, indexer, retriever)."""
 
 from collections.abc import Iterator
+from typing import Annotated
 
-from fastapi import Request
+from fastapi import Depends, Request
 from sqlalchemy.orm import Session
 
 from app.retrieval.indexing import DocumentIndexer
+from app.retrieval.retriever import Retriever
 
 
 def get_db(request: Request) -> Iterator[Session]:
@@ -21,3 +23,12 @@ def get_indexer(request: Request) -> DocumentIndexer:
     """
     indexer: DocumentIndexer = request.app.state.indexer
     return indexer
+
+
+def get_retriever(indexer: Annotated[DocumentIndexer, Depends(get_indexer)]) -> Retriever:
+    """Return a retriever that shares the indexer's embedder and vector store.
+
+    Built from get_indexer, so search always uses the same embedding model,
+    prefixes and index as indexing (and the same fake model in tests).
+    """
+    return Retriever(indexer.embedder, indexer.vector_store)

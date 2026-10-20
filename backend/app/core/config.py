@@ -49,6 +49,9 @@ class Settings(BaseSettings):
     chunk_size: int = Field(default=1000, ge=100)
     chunk_overlap: int = Field(default=150, ge=0)
 
+    # Retrieval: number of passages returned by default (the API allows 1 to 20).
+    retrieval_top_k: int = Field(default=5, ge=1, le=20)
+
     # Storage: SQLite database and uploaded files (relative to the working directory)
     data_dir: Path = Path("data")
 
