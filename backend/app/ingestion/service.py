@@ -1,4 +1,4 @@
-"""Ingestion workflow: check, store, extract and record an uploaded document."""
+"""Ingestion workflow: check, store, extract, index and record an uploaded document."""
 
 import logging
 from typing import BinaryIO
@@ -18,6 +18,8 @@ from app.ingestion.storage import (
     save_to_temporary_file,
     uploads_dir,
 )
+from app.retrieval.indexing import DocumentIndexer, IndexingError
+from app.retrieval.vector_store import VectorStoreError
 
 logger = logging.getLogger(__name__)
 
@@ -33,13 +35,18 @@ def parse_options_from_settings(settings: Settings) -> ParseOptions:
 
 
 def ingest_document(
-    session: Session, source: BinaryIO, filename: str | None, settings: Settings
+    session: Session,
+    source: BinaryIO,
+    filename: str | None,
+    settings: Settings,
+    indexer: DocumentIndexer,
 ) -> Document:
-    """Store an uploaded file and extract its text, page by page.
+    """Store an uploaded file, extract its text page by page and index it.
 
     Raises FileTooLargeError or UnsupportedFileError when the file is refused;
     nothing is stored in that case. Once the file is accepted, the document is
     always returned, with the status "ready" or "failed" (and the reason).
+    The status stays "processing" until the document is searchable.
     """
     folder = uploads_dir(settings.data_dir)
     display_name = safe_display_name(filename)
@@ -59,12 +66,34 @@ def ingest_document(
         pages = parse_document(
             stored_path, detected.file_type, parse_options_from_settings(settings)
         )
-    except (ParseError, OCRError) as error:
-        repository.mark_failed(document, str(error))
+        indexer.index(repository, document, pages)
+    except (ParseError, OCRError, IndexingError) as error:
+        _mark_failed(session, repository, indexer, document, str(error))
     except Exception:
         # A bug must not leave the document stuck in "processing".
-        logger.exception("Unexpected error while parsing document %s", document.id)
-        repository.mark_failed(document, "Unexpected error while reading the document.")
+        logger.exception("Unexpected error while processing document %s", document.id)
+        _mark_failed(
+            session, repository, indexer, document, "Unexpected error while reading the document."
+        )
     else:
         repository.mark_ready(document, pages)
     return document
+
+
+def _mark_failed(
+    session: Session,
+    repository: DocumentRepository,
+    indexer: DocumentIndexer,
+    document: Document,
+    error: str,
+) -> None:
+    """Remove everything stored for the document, then record why it failed."""
+    # Drop any database change left half-done by the error.
+    session.rollback()
+    try:
+        indexer.remove(document.id)
+    except VectorStoreError:
+        # The failure is still recorded; leftover vectors are harmless because
+        # search results are always matched against chunks in SQLite.
+        logger.exception("Could not remove the vectors of document %s", document.id)
+    repository.mark_failed(document, error)

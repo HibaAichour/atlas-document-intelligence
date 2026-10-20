@@ -44,6 +44,11 @@ class Settings(BaseSettings):
     # Number of texts sent in one embedding request.
     embedding_batch_size: int = Field(default=32, ge=1, le=512)
 
+    # Chunking, in characters (starting values, calibrated at step 6).
+    # A chunk never spans two pages; the overlap must stay below half a chunk.
+    chunk_size: int = Field(default=1000, ge=100)
+    chunk_overlap: int = Field(default=150, ge=0)
+
     # Storage: SQLite database and uploaded files (relative to the working directory)
     data_dir: Path = Path("data")
 

@@ -5,7 +5,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
-from app.api.dependencies import get_db
+from app.api.dependencies import get_db, get_indexer
 from app.api.schemas import DocumentOut, PageOut
 from app.core.config import Settings, get_settings
 from app.db.models import Document
@@ -13,21 +13,26 @@ from app.db.repositories import DocumentRepository
 from app.ingestion.file_types import UnsupportedFileError
 from app.ingestion.service import ingest_document
 from app.ingestion.storage import FileTooLargeError
+from app.retrieval.indexing import DocumentIndexer
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
 DbSession = Annotated[Session, Depends(get_db)]
 AppSettings = Annotated[Settings, Depends(get_settings)]
+Indexer = Annotated[DocumentIndexer, Depends(get_indexer)]
 
 
-# Plain "def" (not "async def"): parsing and OCR block, so FastAPI runs
-# these routes in a thread pool and the server stays responsive.
+# Plain "def" (not "async def"): parsing, OCR and embeddings block, so FastAPI
+# runs these routes in a thread pool and the server stays responsive.
 @router.post("", status_code=status.HTTP_201_CREATED)
-def upload_document(file: UploadFile, db: DbSession, settings: AppSettings) -> DocumentOut:
-    """Upload a file and extract its text. A file that cannot be read is
-    still recorded, with the status "failed" and the reason."""
+def upload_document(
+    file: UploadFile, db: DbSession, settings: AppSettings, indexer: Indexer
+) -> DocumentOut:
+    """Upload a file, extract its text and index it for search. A file that
+    cannot be read or indexed is still recorded, with the status "failed"
+    and the reason."""
     try:
-        document = ingest_document(db, file.file, file.filename, settings)
+        document = ingest_document(db, file.file, file.filename, settings, indexer)
     except FileTooLargeError as error:
         raise HTTPException(status.HTTP_413_CONTENT_TOO_LARGE, str(error)) from error
     except UnsupportedFileError as error:

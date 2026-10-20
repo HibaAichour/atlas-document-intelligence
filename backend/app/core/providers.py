@@ -3,14 +3,20 @@
 from pydantic import SecretStr
 
 from app.core.config import Settings
+from app.ingestion.chunking import ChunkOptions
 from app.llm.base import LLMProvider
 from app.llm.ollama import OllamaProvider
 from app.llm.openai_compatible import OpenAICompatibleProvider
+from app.retrieval.embedder import Embedder
 from app.retrieval.embeddings import (
     EmbeddingProvider,
     OllamaEmbeddingProvider,
     OpenAICompatibleEmbeddingProvider,
 )
+from app.retrieval.indexing import DocumentIndexer
+from app.retrieval.vector_store import ChromaVectorStore
+
+CHROMA_FOLDER = "chroma"
 
 
 def _secret(value: SecretStr | None) -> str | None:
@@ -55,3 +61,17 @@ def build_embedding_provider(settings: Settings) -> EmbeddingProvider:
             timeout_seconds=settings.llm_timeout_seconds,
         )
     raise ValueError(f"Unsupported embedding provider: {settings.embedding_provider}")
+
+
+def build_document_indexer(settings: Settings) -> DocumentIndexer:
+    """Create the indexer: embedding provider, vector store and chunking options.
+
+    Nothing is sent to the embedding service here, so the server starts even
+    when Ollama is not running. The vector store lives in DATA_DIR/chroma.
+    """
+    embedder = Embedder.from_settings(build_embedding_provider(settings), settings)
+    vector_store = ChromaVectorStore(settings.data_dir / CHROMA_FOLDER, settings.embedding_model)
+    chunk_options = ChunkOptions(
+        chunk_size=settings.chunk_size, chunk_overlap=settings.chunk_overlap
+    )
+    return DocumentIndexer(embedder, vector_store, chunk_options)
