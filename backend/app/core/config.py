@@ -4,7 +4,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import SecretStr
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ProviderName = Literal["ollama", "openai_compatible"]
@@ -36,6 +36,13 @@ class Settings(BaseSettings):
     embedding_model: str = "nomic-embed-text"
     embedding_base_url: str = "http://127.0.0.1:11434"
     embedding_api_key: SecretStr | None = None
+    # Task prefixes expected by some models. nomic-embed-text was trained with
+    # these two; set both to "" for a model that uses no prefix. Changing them
+    # (or the model) requires re-indexing every document.
+    embedding_document_prefix: str = "search_document: "
+    embedding_query_prefix: str = "search_query: "
+    # Number of texts sent in one embedding request.
+    embedding_batch_size: int = Field(default=32, ge=1, le=512)
 
     # Storage: SQLite database and uploaded files (relative to the working directory)
     data_dir: Path = Path("data")
