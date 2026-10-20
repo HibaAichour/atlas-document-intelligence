@@ -1,18 +1,19 @@
-"""Read and write documents and pages. Routes and services never write SQL directly."""
+"""Read and write documents, pages and chunks. Routes and services never write SQL directly."""
 
 from collections.abc import Sequence
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
-from app.db.models import Document, DocumentStatus, Page
+from app.db.models import Chunk, Document, DocumentStatus, Page, new_uuid
+from app.ingestion.chunking import TextChunk
 from app.ingestion.models import PageText
 
 MAX_ERROR_LENGTH = 1000
 
 
 class DocumentRepository:
-    """Every database operation on documents and their pages."""
+    """Every database operation on documents, their pages and their chunks."""
 
     def __init__(self, session: Session) -> None:
         self._session = session
@@ -56,13 +57,60 @@ class DocumentRepository:
         self._session.commit()
 
     def mark_failed(self, document: Document, error: str) -> None:
-        """Record why processing failed. Any partial pages are removed."""
+        """Record why processing failed. Any partial pages and chunks are removed."""
+        document.chunks.clear()
         self._replace_pages(document, [])
         document.page_count = 0
         document.ocr_used = False
         document.status = DocumentStatus.FAILED
         document.error = error[:MAX_ERROR_LENGTH]
         self._session.commit()
+
+    def replace_chunks(self, document: Document, chunks: Sequence[TextChunk]) -> list[Chunk]:
+        """Delete the document's chunks, store the new ones and return them.
+
+        Ids are generated here, before saving, so the caller can reuse them
+        in the vector store.
+        """
+        # Delete first: a (page_number, position) pair that still exists
+        # would break the uniqueness rule.
+        document.chunks.clear()
+        self._session.flush()
+        stored = [
+            Chunk(
+                id=new_uuid(),
+                page_number=chunk.page_number,
+                position=chunk.position,
+                text=chunk.text,
+            )
+            for chunk in chunks
+        ]
+        document.chunks.extend(stored)
+        self._session.commit()
+        return stored
+
+    def list_chunks(self, document_id: str) -> list[Chunk]:
+        """Return the chunks of a document, in page order then position order."""
+        statement = (
+            select(Chunk)
+            .where(Chunk.document_id == document_id)
+            .order_by(Chunk.page_number, Chunk.position)
+        )
+        return list(self._session.scalars(statement))
+
+    def get_chunks(self, chunk_ids: Sequence[str]) -> list[Chunk]:
+        """Return the chunks with these ids, in the same order as chunk_ids.
+
+        Unknown ids are skipped. Each chunk comes with its document loaded,
+        so the caller can read the filename without another query.
+        """
+        if not chunk_ids:
+            return []
+        statement = (
+            select(Chunk).where(Chunk.id.in_(chunk_ids)).options(joinedload(Chunk.document))
+        )
+        found = {chunk.id: chunk for chunk in self._session.scalars(statement)}
+        return [found[chunk_id] for chunk_id in chunk_ids if chunk_id in found]
 
     def _replace_pages(self, document: Document, pages: Sequence[PageText]) -> None:
         # Delete the old pages first: inserting a page number that still
