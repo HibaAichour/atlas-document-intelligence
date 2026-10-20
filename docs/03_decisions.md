@@ -10,6 +10,78 @@ Format : une entrée par décision, la plus récente en haut.
 - **Conséquences** : impact sur le projet, lien avec la V2
 
 ---
+## [2026-10-20] Image backend : 1,06 Go avec Chroma, accepté pour l'instant
+- **Contexte** : l'ajout de `chromadb` fait passer l'image backend de 491 Mo à 1,06 Go sur le disque (de 118 à 233 Mo compressés). Le cache de pip est déjà désactivé (`PIP_NO_CACHE_DIR=1`) : la hausse vient uniquement des dépendances de Chroma (`onnxruntime`, `grpcio`, `kubernetes`, etc.).
+- **Décision** : accepter cette taille en V1. La RAM, vraie contrainte de la machine, n'est pas touchée (environ 120 Mo pour Chroma).
+- **Alternatives écartées** : installer Chroma sans ses dépendances (fragile, casse à la moindre mise à jour) ; changer de base vectorielle dès maintenant (voir l'entrée sur Chroma 1.5.9).
+- **Conséquences** : un premier build télécharge environ 100 Mo (11 minutes avec une connexion lente). La taille sera réexaminée à l'étape 12, selon les limites de la plateforme de déploiement choisie.
+
+## [2026-10-20] Scripts de maintenance copiés dans l'image backend
+- **Contexte** : le `Dockerfile` ne copiait que `app/`, donc `python -m scripts.reindex` échouait dans le conteneur (`No module named 'scripts'`).
+- **Décision** : ajout de `COPY scripts ./scripts`, après l'installation des dépendances pour garder le cache.
+- **Alternatives écartées** : lancer les scripts depuis le Mac sur les données Docker (le volume n'est pas accessible directement).
+- **Conséquences** : la ré-indexation est possible dans Docker et le sera en production, avec `docker compose run --rm backend python -m scripts.reindex` (backend arrêté pendant l'opération).
+
+## [2026-10-20] Docker : backend relié à Ollama natif via host.docker.internal
+- **Contexte** : dans un conteneur, `127.0.0.1` désigne le conteneur lui-même, pas le Mac où tourne Ollama.
+- **Décision** : `LLM_BASE_URL` et `EMBEDDING_BASE_URL` valent `http://host.docker.internal:11434` dans `docker-compose.yml`, avec `extra_hosts: host.docker.internal:host-gateway`.
+- **Alternatives écartées** : Ollama dans Docker (sans GPU Metal, voir l'entrée du 2026-10-18).
+- **Conséquences** : `extra_hosts` ne change rien sur Mac et rend la configuration valable sous Linux. Validé : les 3 documents du volume ont été ré-indexés depuis le conteneur, et une recherche via `localhost:8080` renvoie la bonne page.
+
+## [2026-10-20] Seuil de pertinence : pas fixé à l'étape 5, premières mesures notées
+- **Contexte** : le refus sans appel au LLM dépend d'un seuil sur le score (similarité cosinus).
+- **Décision** : l'endpoint de recherche renvoie le score sans filtrer. Le seuil sera calibré à l'étape 6 sur les documents de démo.
+- **Alternatives écartées** : fixer un seuil dès maintenant sur des documents de test de trois phrases (non représentatif).
+- **Conséquences** : premières mesures avec `nomic-embed-text`. Sur un DOCX court : 0,81 pour la bonne page, environ 0,50 pour les autres, 0,47 pour une information absente. Sur la facture scannée : 0,67 pour la bonne page, mais 0,62 et 0,59 pour des passages hors sujet. Les chunks longs ont des scores plus bas : un seuil fixe sera délicat, le Writer et le Critic restent des garde-fous nécessaires.
+
+## [2026-10-20] Recherche : Retriever et POST /api/search
+- **Contexte** : il faut une requête qui renvoie les bons passages avec leur source (fin de l'étape 5), et le futur Writer en aura besoin.
+- **Décision** : classe `Retriever` (outil déterministe, pas un agent) : embedding de la question avec le préfixe de requête, recherche dans Chroma, puis lecture du texte et du nom de fichier en SQLite. Un vecteur sans chunk en SQLite est ignoré. Endpoint `POST /api/search` : `query` (1 à 1000 caractères), `top_k` (1 à 20, défaut `RETRIEVAL_TOP_K = 5`), `document_ids` optionnel. Réponse `{query, results}`. Erreur 503 si le service d'embedding ne répond pas.
+- **Alternatives écartées** : renvoyer le texte stocké dans Chroma (SQLite est la source de vérité) ; une erreur 500 générique (laisserait croire à un bug).
+- **Conséquences** : le retriever partage l'embedder et le vector store de l'indexeur (dépendance `get_retriever` construite à partir de `get_indexer`) : même modèle, mêmes préfixes, même index. La réponse sous forme d'objet pourra recevoir de nouveaux champs à l'étape 6 sans casser le frontend.
+
+## [2026-10-20] Script de ré-indexation depuis SQLite
+- **Contexte** : les documents téléversés avant l'étape 5 n'avaient pas d'index, et tout changement de modèle, de préfixes ou de taille de chunks impose de ré-indexer.
+- **Décision** : `python -m scripts.reindex` traite tous les documents `ready` à partir des pages déjà en SQLite (sans nouvel OCR), continue en cas d'échec et renvoie un code d'erreur s'il y en a eu un. Le serveur doit être arrêté pendant l'opération (Chroma embarqué n'est pas prévu pour deux programmes en même temps).
+- **Alternatives écartées** : un endpoint d'API (inutile en V1, et risque d'écritures concurrentes dans Chroma).
+- **Conséquences** : script idempotent ; si le service d'embedding est indisponible, l'index existant reste intact.
+
+## [2026-10-20] Indexation synchrone pendant l'upload, nettoyage en cas d'échec
+- **Contexte** : un document doit être cherchable dès qu'il est affiché comme prêt.
+- **Décision** : classe `DocumentIndexer` (chunking, embeddings, Chroma), appelée par l'upload et par le script de ré-indexation. Ordre : parsing, indexation, puis `mark_ready` : le document reste en `processing` jusqu'à la fin. Les vecteurs sont calculés avant toute écriture. En cas d'échec : `rollback`, suppression des vecteurs, puis `mark_failed` (pages et chunks supprimés, raison enregistrée, par exemple « Indexing failed: ... »). L'indexeur est créé au démarrage, sans appel au service d'embedding.
+- **Alternatives écartées** : garder le document en `ready` sans index (affiché comme utilisable alors qu'aucune recherche ne le trouverait) ; indexation en tâche de fond (V2).
+- **Conséquences** : un upload nécessite qu'Ollama tourne (ou l'API externe en ligne) ; le serveur démarre même sans lui. Un vecteur orphelin laissé par un échec de Chroma est sans danger : la recherche relit toujours SQLite.
+
+## [2026-10-20] Tests : faux modèle d'embedding injecté par dependency_overrides
+- **Contexte** : après l'étape 5, chaque upload appelle le modèle d'embedding ; les tests ne doivent dépendre ni d'Ollama ni du réseau.
+- **Décision** : dans `conftest.py`, un provider factice répartit les mots dans 64 dimensions (textes proches, vecteurs proches) ; la fixture `client` remplace `get_indexer` par un indexeur qui l'utilise, sur un Chroma temporaire. Un second provider simule un service d'embedding indisponible.
+- **Alternatives écartées** : appeler le vrai Ollama dans les tests (lent, dépend de la machine) ; simuler Chroma (on teste alors une imitation, pas le vrai comportement).
+- **Conséquences** : 151 tests passent en quelques secondes, sans réseau ; Chroma est testé pour de vrai. La vérification avec les vrais modèles se fait à la main (`curl` sur `/api/search`).
+
+## [2026-10-20] Préfixes de tâche de nomic-embed-text dans la couche retrieval
+- **Contexte** : `nomic-embed-text` est entraîné avec un préfixe différent pour les passages (`search_document: `) et pour les questions (`search_query: `) ; sans eux, le retrieval est moins bon.
+- **Décision** : classe `Embedder` au-dessus de l'`EmbeddingProvider` existant : ajoute les préfixes et envoie les textes par lots (`EMBEDDING_BATCH_SIZE = 32`). Préfixes configurables (`EMBEDDING_DOCUMENT_PREFIX`, `EMBEDDING_QUERY_PREFIX`), ceux de nomic par défaut ; à mettre à `""` pour un modèle sans préfixe.
+- **Alternatives écartées** : préfixes dans chaque provider (ils dépendent du modèle, pas du fournisseur) ; détection automatique d'après le nom du modèle (magique et fragile).
+- **Conséquences** : les providers restent génériques. Changer les préfixes ou le modèle impose de ré-indexer tous les documents.
+
+## [2026-10-20] Chroma 1.5.9, une collection par modèle d'embedding
+- **Contexte** : il faut stocker et interroger les vecteurs ; Chroma ajoute environ 360 Mo de dépendances sur le disque.
+- **Décision** : `chromadb==1.5.9` épinglé, derrière une interface `VectorStore` (`upsert`, `query`, `delete_document`, `count`). Une collection par modèle d'embedding, en distance cosinus ; le nom exact du modèle est enregistré dans la collection et vérifié à chaque ouverture. Seuls les vecteurs et `document_id`, `page_number`, `position` sont stockés. Télémétrie désactivée. Score renvoyé : 1 − distance cosinus.
+- **Alternatives écartées** : `sqlite-vec`, très léger, mais il aurait fallu revenir sur une décision prise et recoder le filtrage et la persistance.
+- **Conséquences** : environ 120 Mo de RAM. Les erreurs de Chroma sont traduites en `VectorStoreError`, donc le passage à Qdrant en V2 ne touchera pas le code appelant. Seul `chromadb` est épinglé, pas ses dépendances.
+
+## [2026-10-20] Table chunks, identifiants uuid, tables créées par create_all
+- **Contexte** : le texte des chunks doit être en SQLite (source de vérité), sous le même identifiant que dans Chroma.
+- **Décision** : table `chunks` (id uuid en texte, `document_id`, `page_number`, `position`, `text`, `created_at`), unicité sur `(document_id, page_number, position)`, suppression en cascade avec le document. Les ids sont générés avant l'enregistrement. Les tables sont créées par `create_all`, sans outil de migration.
+- **Alternatives écartées** : id entier auto-incrémenté (inconnu avant l'écriture en base) ; Alembic (un outil de plus à apprendre en V1).
+- **Conséquences** : la nouvelle table apparaît d'elle-même dans une base existante. `create_all` ne modifie jamais une table existante : changer ses colonnes impose de recréer la base (`docker compose down -v` dans Docker). Le champ s'appelle `page_number`, comme dans la table `pages` (et non `page` comme dans `02_architecture.md`).
+
+## [2026-10-20] Chunker maison, en caractères
+- **Contexte** : chaque chunk doit pointer vers une page exacte.
+- **Décision** : fonction pure `chunk_pages`, page par page (un chunk ne chevauche jamais deux pages). Taille ~1000 caractères, chevauchement ~150 (`CHUNK_SIZE`, `CHUNK_OVERLAP`). Coupure de préférence sur paragraphe, ligne, phrase, puis mot, dans la seconde moitié de la fenêtre ; le chunk suivant commence au début d'un mot.
+- **Alternatives écartées** : `RecursiveCharacterTextSplitter` de LangChain (grosse dépendance pour une seule fonction) ; taille en tokens (dépendance au tokenizer, inutile ici).
+- **Conséquences** : 1000 caractères font environ 250 tokens, très en dessous de la limite du modèle. Un mot de plus de 500 caractères (OCR raté) est coupé.
+
 ## [2026-10-20] Nginx : limite d'upload à 21 Mo, délais de 300 s
 - **Contexte** : Nginx limite par défaut le corps d'une requête à 1 Mo et attend la réponse du backend 60 s au maximum. Un scan de quelques pages dépasse 1 Mo, et l'OCR synchrone peut dépasser 60 s.
 - **Décision** : dans `location /api/` uniquement, `client_max_body_size 21m`, `proxy_read_timeout 300s` et `proxy_send_timeout 300s`. La limite Nginx est volontairement juste au-dessus de celle du backend (`MAX_UPLOAD_MB = 20`), car l'encodage `multipart` ajoute quelques octets au fichier.

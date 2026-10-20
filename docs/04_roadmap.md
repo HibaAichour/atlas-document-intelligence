@@ -36,9 +36,9 @@ Cocher les cases au fur et à mesure. Durée totale estimée : 35 à 45 jours de
 - **Fin** : un PDF scanné donne du texte page par page
 
 ## Étape 5 : Chunking, embeddings, indexation (2 à 3 jours)
-- [ ] Chunking avec document, page, position
-- [ ] Embeddings
-- [ ] Chroma derrière une interface
+- [x] Chunking avec document, page, position
+- [x] Embeddings
+- [x] Chroma derrière une interface
 - **Fin** : une requête retourne les bons passages avec sources
 
 ## Étape 6 : RAG avec citations + Writer (3 à 4 jours)
