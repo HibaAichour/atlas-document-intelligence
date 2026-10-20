@@ -10,6 +10,36 @@ Format : une entrée par décision, la plus récente en haut.
 - **Conséquences** : impact sur le projet, lien avec la V2
 
 ---
+## [2026-10-20] Nginx : limite d'upload à 21 Mo, délais de 300 s
+- **Contexte** : Nginx limite par défaut le corps d'une requête à 1 Mo et attend la réponse du backend 60 s au maximum. Un scan de quelques pages dépasse 1 Mo, et l'OCR synchrone peut dépasser 60 s.
+- **Décision** : dans `location /api/` uniquement, `client_max_body_size 21m`, `proxy_read_timeout 300s` et `proxy_send_timeout 300s`. La limite Nginx est volontairement juste au-dessus de celle du backend (`MAX_UPLOAD_MB = 20`), car l'encodage `multipart` ajoute quelques octets au fichier.
+- **Alternatives écartées** : limite identique de 20 Mo (un fichier proche de la limite serait refusé par Nginx avec une page HTML 413, au lieu du message JSON du backend) ; réglages sur tout le `server` (inutiles pour les fichiers statiques).
+- **Conséquences** : le backend reste la seule source de la règle de taille ; Nginx sert de filet de sécurité. Le délai de 300 s couvre une ingestion normale (au maximum 10 pages en OCR) ; l'ingestion asynchrone est prévue en V2. Validé avec un PDF scanné de 1,36 Mo via `localhost:8080`.
+
+## [2026-10-20] Volume Docker nommé pour `data/`
+- **Contexte** : la base SQLite et les fichiers téléversés sont écrits dans le conteneur et disparaîtraient à sa suppression.
+- **Décision** : volume nommé `backend-data` (créé sous le nom `atlas_backend-data`) monté sur `/app/data`, et `DATA_DIR=/app/data` défini explicitement dans `docker-compose.yml`. Le dossier existe dans l'image et appartient à l'utilisateur `atlas`, donc le volume hérite de ces droits à sa création.
+- **Alternatives écartées** : bind mount vers un dossier du Mac (problèmes de droits avec l'utilisateur non root, mélange avec les données du développement natif) ; aucun volume (données perdues à chaque `docker compose down`).
+- **Conséquences** : les données survivent à `docker compose down` et aux reconstructions (vérifié). `docker compose down -v` remet tout à zéro. En production, l'application ne dépend toujours pas d'un disque persistant (documents de démo indexés au démarrage).
+
+## [2026-10-20] Tesseract dans l'image backend, sans Poppler
+- **Contexte** : l'OCR doit fonctionner dans Docker comme en natif.
+- **Décision** : installation par `apt-get` de `tesseract-ocr` et `tesseract-ocr-eng` (nommé explicitement), avec `--no-install-recommends` et suppression des listes apt, dans une couche placée avant `pip install` pour profiter du cache. Aucune autre bibliothèque système : `pypdfium2` embarque son propre moteur PDF pour rasteriser les pages.
+- **Alternatives écartées** : `pdf2image`, qui impose `poppler-utils` dans l'image ; une image de base avec Tesseract préinstallé (moins maîtrisée, plus lourde).
+- **Conséquences** : Tesseract 5 disponible dans le conteneur avec les langues `eng` et `osd` (vérifié avec `tesseract --list-langs`). Les reconstructions où seul le code change restent rapides.
+
+## [2026-10-20] Ingestion : limites de taille et documents en échec conservés
+- **Contexte** : le traitement est synchrone en V1 ; un fichier trop gros ou un long scan bloquerait la requête.
+- **Décision** : limites configurables dans `Settings` : `max_upload_mb = 20`, `max_pages = 50`, `max_ocr_pages = 10`, et délai OCR par appel (`ocr_timeout_seconds = 60`). Un fichier trop gros est refusé avec une erreur 413. Un fichier illisible est quand même enregistré, avec le statut `failed` et la raison dans `error`.
+- **Alternatives écartées** : aucune limite (risque de blocage du serveur) ; ignorer les fichiers en échec (l'utilisateur ne saurait pas pourquoi son document n'apparaît pas).
+- **Conséquences** : comportement prévisible pendant une démo. Les limites pourront être relevées en V2 avec l'ingestion asynchrone.
+
+## [2026-10-20] PDF : pypdfium2 pour le texte et la rasterisation
+- **Contexte** : il faut extraire le texte des PDF page par page et, pour les pages scannées, les convertir en image pour Tesseract.
+- **Décision** : `pypdfium2`, qui fait les deux avec une seule bibliothèque et embarque le moteur PDFium (celui de Chrome), sans dépendance système.
+- **Alternatives écartées** : `pdf2image` (dépend de Poppler, à installer dans l'image) ; PyMuPDF (licence AGPL, contraignante).
+- **Conséquences** : image Docker plus légère et installation identique sur le Mac et dans le conteneur.
+
 ## [2026-10-19] Modèle Groq pour la démo : openai/gpt-oss-20b
 - **Contexte** : `llama-3.3-70b-versatile` n'est plus proposé par Groq (erreur 404 `model_not_found`). La liste des modèles a été obtenue via l'endpoint `/models`.
 - **Décision** : `openai/gpt-oss-20b`, testé avec succès (réponse en environ 1 s).

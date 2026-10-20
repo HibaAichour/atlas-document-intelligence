@@ -29,10 +29,10 @@ Cocher les cases au fur et à mesure. Durée totale estimée : 35 à 45 jours de
 - **Fin** : test passant avec les deux providers
 
 ## Étape 4 : Upload, parsing, OCR (3 à 4 jours)
-- [ ] Upload de fichiers
-- [ ] Extraction PDF, DOCX, PPTX avec numéro de page
-- [ ] OCR Tesseract (scans et images)
-- [ ] Métadonnées en SQLite
+- [x] Upload de fichiers
+- [x] Extraction PDF, DOCX, PPTX avec numéro de page
+- [x] OCR Tesseract (scans et images)
+- [x] Métadonnées en SQLite
 - **Fin** : un PDF scanné donne du texte page par page
 
 ## Étape 5 : Chunking, embeddings, indexation (2 à 3 jours)
