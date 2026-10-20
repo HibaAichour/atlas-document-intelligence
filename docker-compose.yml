@@ -8,9 +8,16 @@ services:
     build: ./backend
     restart: unless-stopped
     environment:
-      # Where the SQLite database and uploaded files are stored.
+      # Where the SQLite database, uploaded files and Chroma index are stored.
       # Must match the mount point of the volume below.
       DATA_DIR: /app/data
+      # Inside a container, 127.0.0.1 is the container itself.
+      # host.docker.internal is the Mac, where Ollama runs natively.
+      LLM_BASE_URL: http://host.docker.internal:11434
+      EMBEDDING_BASE_URL: http://host.docker.internal:11434
+    extra_hosts:
+      # Built in with Docker Desktop on Mac; this line also makes it work on Linux.
+      - "host.docker.internal:host-gateway"
     volumes:
       # Named volume: data survives container restarts and rebuilds.
       # Reset everything with: docker compose down -v

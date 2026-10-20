@@ -23,11 +23,13 @@ RUN apt-get update \
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 
-# Then copy the application code.
+# Then copy the application code, and the maintenance scripts
+# (for example: python -m scripts.reindex after changing the embedding model).
 COPY app ./app
+COPY scripts ./scripts
 
 # Run as a non-root user for safety. That user must own the data folder,
-# where the SQLite database and uploaded files are written.
+# where the SQLite database, uploaded files and Chroma index are written.
 # A named volume mounted on /app/data inherits this ownership on first use.
 RUN useradd --create-home atlas \
     && mkdir -p /app/data \
