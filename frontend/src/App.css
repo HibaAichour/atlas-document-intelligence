@@ -1,46 +1,314 @@
-/* Styles for the App component. */
-.page {
-  max-width: 640px;
-  margin: 0 auto;
-  padding: 4rem 1.5rem;
+/* Layout and components of the application. */
+
+.app {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  min-height: 100vh;
+  padding: var(--space-5);
 }
 
-.page h1 {
-  margin: 0;
-  font-size: 2.5rem;
-  letter-spacing: -0.02em;
+/* Shared glass surface: the header and the panels use it. */
+.glass {
+  background-color: var(--glass-fill);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--glass-depth);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
 }
 
-.subtitle {
-  margin: 0.25rem 0 0;
-  color: #52606d;
+/* Header */
+
+.app-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3) var(--space-6);
+  padding: var(--space-3) var(--space-5);
 }
 
-.status-card {
-  margin-top: 2rem;
-  padding: 1.5rem;
-  background-color: #ffffff;
-  border: 1px solid #e4e7eb;
-  border-radius: 12px;
+.brand {
+  display: flex;
+  align-items: center;
+  min-width: 0;
 }
 
-.status-card h2 {
-  margin: 0 0 0.5rem;
-  font-size: 0.8rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: #52606d;
+.brand-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.2;
 }
 
-.status {
-  margin: 0;
+.brand-name {
+  font-family: var(--font-serif);
+  font-size: 1.375rem;
   font-weight: 600;
+  letter-spacing: 0.12em;
 }
 
-.status-online {
-  color: #1a7f37;
+.brand-tagline {
+  color: var(--color-muted);
+  font-size: 0.8125rem;
 }
 
-.status-offline {
-  color: #c62828;
+.health {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-radius: 999px;
+  background-color: var(--glass-fill-tile);
+  box-shadow: var(--tile-depth);
+  color: var(--color-muted);
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+.health-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background-color: var(--color-line);
+}
+
+.health-online .health-dot {
+  background-color: var(--color-success);
+  box-shadow: 0 0 0 3px rgba(47, 138, 95, 0.16);
+}
+
+.health-offline {
+  color: var(--color-danger);
+}
+
+.health-offline .health-dot {
+  background-color: var(--color-danger);
+}
+
+/* Workspace: documents on the left, conversation in the middle */
+
+.workspace {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 19rem minmax(0, 1fr);
+  gap: var(--space-5);
+}
+
+@media (max-width: 800px) {
+  .app {
+    gap: var(--space-3);
+    padding: var(--space-3);
+  }
+
+  .workspace {
+    grid-template-columns: 1fr;
+    align-content: start;
+    gap: var(--space-3);
+  }
+}
+
+/* Documents panel */
+
+.documents {
+  align-self: start;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-5);
+}
+
+.documents-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.documents-title {
+  font-size: 1.0625rem;
+  font-weight: 700;
+}
+
+.note {
+  color: var(--color-muted);
+  font-size: 0.8125rem;
+}
+
+.message {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid rgba(180, 43, 47, 0.16);
+  border-radius: var(--radius-control);
+  font-size: 0.875rem;
+}
+
+.message-error {
+  color: var(--color-danger);
+  background-color: var(--color-danger-soft);
+}
+
+.document-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Each document is a small raised pane of glass inside the panel. */
+.document {
+  padding: var(--space-3);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-radius: var(--radius-control);
+  background-color: var(--glass-fill-tile);
+  box-shadow: var(--tile-depth);
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.document:has(.document-label):hover {
+  transform: translateY(-1px);
+  box-shadow:
+    var(--tile-depth),
+    0 14px 24px -12px var(--shadow-strong);
+}
+
+/* A checked document gets a coral edge on the left. */
+.document:has(.document-check:checked) {
+  box-shadow:
+    inset 3px 0 0 var(--color-coral),
+    var(--tile-depth);
+}
+
+/* Checkbox (or an empty cell for a document that cannot be used), then the text. */
+.document-row {
+  display: grid;
+  grid-template-columns: 1.25rem minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-2);
+}
+
+.document-label {
+  cursor: pointer;
+}
+
+.document-check {
+  width: 1rem;
+  height: 1rem;
+  margin: 0.2rem 0 0;
+  accent-color: var(--color-accent);
+}
+
+.document-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.document-name {
+  overflow: hidden;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.document-meta {
+  color: var(--color-muted);
+  font-size: 0.8125rem;
+}
+
+.document-failed {
+  background-color: rgba(255, 255, 255, 0.45);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+.document-failed .document-name {
+  color: var(--color-muted);
+}
+
+.document-failed .document-meta {
+  color: var(--color-danger);
+}
+
+/* Buttons: a raised turquoise control with a light top edge. */
+
+.button {
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.12s ease;
+}
+
+.button:disabled {
+  cursor: progress;
+  opacity: 0.7;
+}
+
+.button-primary {
+  color: var(--color-white);
+  background: linear-gradient(180deg, var(--color-accent-light) 0%, var(--color-accent) 100%);
+  border-color: var(--color-accent-deep);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    0 8px 18px -10px var(--shadow-strong);
+}
+
+.button-primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    0 12px 22px -10px var(--shadow-strong);
+}
+
+.button-primary:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+/* Conversation */
+
+.conversation {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 28rem;
+  padding: var(--space-8);
+}
+
+.conversation-intro {
+  max-width: 38rem;
+}
+
+.conversation-intro h1 {
+  font-family: var(--font-serif);
+  font-size: 2rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+/* A short coral rule under the heading. */
+.conversation-intro h1::after {
+  content: '';
+  display: block;
+  width: 2.5rem;
+  height: 3px;
+  margin-top: var(--space-4);
+  border-radius: 2px;
+  background-color: var(--color-coral);
+}
+
+.conversation-intro p {
+  margin-top: var(--space-3);
+  color: var(--color-muted);
+  font-size: 1.0625rem;
 }

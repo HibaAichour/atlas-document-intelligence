@@ -1,9 +1,53 @@
-/* Global styles shared by the whole application. */
+/* Global styles and design tokens shared by the whole application. */
 :root {
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  /* Colours ("lagoon"): deep turquoise as the main accent, coral as a touch. */
+  --color-ink: #16323a;
+  --color-muted: #55707a;
+  --color-line: #d8e6e8;
+  --color-white: #ffffff;
+  --color-accent: #0c7c7a;
+  --color-accent-light: #14a3a0;
+  --color-accent-deep: #09625f;
+  --color-coral: #ff7f66;
+  --color-danger: #b42b2f;
+  --color-danger-soft: rgba(255, 236, 236, 0.85);
+  --color-success: #2f8a5f;
+
+  /* Shadows are tinted with the accent rather than grey. */
+  --shadow-soft: rgba(12, 124, 122, 0.18);
+  --shadow-strong: rgba(12, 124, 122, 0.7);
+
+  /* Frosted glass: white panels that blur the coloured background. */
+  --glass-fill: rgba(255, 255, 255, 0.48);
+  --glass-fill-tile: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.75);
+  --glass-blur: blur(28px) saturate(150%);
+  /* 3D depth: light on the top and left edges, then stacked soft shadows. */
+  --glass-depth:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95), inset 1px 0 0 rgba(255, 255, 255, 0.5),
+    0 2px 4px var(--shadow-soft), 0 18px 36px -14px var(--shadow-soft),
+    0 40px 70px -30px var(--shadow-strong);
+  --tile-depth:
+    inset 0 1px 0 #ffffff, 0 1px 2px var(--shadow-soft), 0 8px 18px -10px var(--shadow-soft);
+
+  /* Type: a serif for the name and headings, Manrope for the interface. */
+  --font-ui: 'Manrope', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-serif: 'IBM Plex Serif', Georgia, 'Times New Roman', serif;
+
+  --radius-panel: 18px;
+  --radius-control: 10px;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+
+  font-family: var(--font-ui);
+  font-size: 16px;
   line-height: 1.5;
-  color: #1f2933;
-  background-color: #f5f7fa;
+  color: var(--color-ink);
   color-scheme: light;
 }
 
@@ -16,4 +60,31 @@
 body {
   margin: 0;
   min-height: 100vh;
+  /* Turquoise light from the top right, coral from the bottom left. The
+     frosted panels blur these colours, which makes the glass visible. */
+  background-color: #f5fbfb;
+  background-image:
+    radial-gradient(48rem 38rem at 100% 5%, #6fded6 0%, transparent 70%),
+    radial-gradient(42rem 34rem at 0% 100%, #ffab96 0%, transparent 70%),
+    radial-gradient(34rem 26rem at 55% 60%, #c9f3ef 0%, transparent 70%);
+  background-attachment: fixed;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+/* Keyboard users always see where they are. */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
 }
