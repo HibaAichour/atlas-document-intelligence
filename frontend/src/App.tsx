@@ -1,13 +1,16 @@
 import './App.css'
 
+import { ChatPanel } from './components/ChatPanel'
 import { DocumentsPanel } from './components/DocumentsPanel'
 import { HealthStatus } from './components/HealthStatus'
+import { useChat } from './hooks/useChat'
 import { useDocuments } from './hooks/useDocuments'
 import { useMessages } from './lib/i18n'
 
 function App() {
   const t = useMessages()
   const documents = useDocuments()
+  const chat = useChat(documents.selectedIds)
 
   return (
     <div className="app">
@@ -33,12 +36,12 @@ function App() {
           onToggle={documents.toggle}
         />
 
-        <main className="conversation glass">
-          <div className="conversation-intro">
-            <h1>{t.introTitle}</h1>
-            <p>{t.introText}</p>
-          </div>
-        </main>
+        <ChatPanel
+          messages={chat.messages}
+          isWaiting={chat.isWaiting}
+          canAsk={documents.selectedIds.size > 0}
+          onAsk={(question) => void chat.ask(question)}
+        />
       </div>
     </div>
   )

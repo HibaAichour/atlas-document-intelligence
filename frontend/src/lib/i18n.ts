@@ -27,6 +27,21 @@ const en = {
   introText:
     'Each answer cites the document and the page it comes from. When the documents do not contain the answer, ATLAS says so instead of guessing.',
 
+  questionLabel: 'Your question',
+  questionPlaceholder: 'Ask about the checked documents',
+  selectDocumentFirst: 'Check at least one document to ask a question',
+  askButton: 'Ask',
+  answerPending: 'Searching the documents and writing the answer. The local model can take up to a minute.',
+  answerFailed: 'The answer could not be generated.',
+  refusalTitle: 'The documents do not contain this information.',
+  refusalNoPassages: 'No passage was close enough to the question, so no answer was generated.',
+  refusalNotFound: 'The passages found do not answer the question.',
+  warningInvalidCitations: 'Some citations invented by the model were removed.',
+  warningNoCitation: 'This answer cites no source: check it against the documents.',
+  sourceCount: (count: number) =>
+    count === 0 ? 'No source.' : count === 1 ? '1 source.' : `${count} sources.`,
+  answeredIn: (seconds: number) => `Answered in ${seconds.toFixed(1)} s.`,
+
   unexpectedError: 'Something unexpected happened.',
 }
 
