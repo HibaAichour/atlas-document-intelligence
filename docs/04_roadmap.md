@@ -54,8 +54,8 @@ Cocher les cases au fur et à mesure. Durée totale estimée : 38 à 50 jours de
 - **Fin** : parcours complet dans le navigateur
 
 ## Étape 8 : Historique des sessions (2 jours)
-- [ ] Sessions, messages, documents associés en base
-- [ ] Liste et reprise de session dans l'interface
+- [x] Sessions, messages, documents associés en base
+- [x] Liste et reprise de session dans l'interface
 - **Fin** : fermer l'onglet, revenir, tout est là
 
 ## Étape 9 : Agents et orchestration (5 à 7 jours)
