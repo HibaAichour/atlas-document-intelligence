@@ -120,7 +120,10 @@ def test_ask_in_session_saves_the_question_and_the_cited_answer(
     assert citation["filename"] == "contract.docx"
     expected = f"Either party may terminate with 30 days notice {citation['display']}."
     assert answer["content"] == expected
-    assert answer["agent_trace"] == []
+    assert [(run["name"], run["status"]) for run in answer["agent_trace"]] == [
+        ("retrieval", "ok"),
+        ("writer", "ok"),
+    ]
 
 
 def test_a_saved_session_reads_back_exactly_like_the_live_answer(

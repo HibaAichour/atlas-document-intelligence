@@ -5,8 +5,9 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.agents.orchestrator import Orchestrator
 from app.api.ask import answer_or_503
-from app.api.dependencies import get_db, get_question_answerer
+from app.api.dependencies import get_db, get_orchestrator
 from app.api.schemas import (
     AskRequest,
     CitationOut,
@@ -23,13 +24,13 @@ from app.db.repositories import (
     SessionRepository,
     SessionSummary,
 )
-from app.rag.answering import AnswerResult, QuestionAnswerer
+from app.rag.answering import AnswerResult
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 
 DbSession = Annotated[Session, Depends(get_db)]
 AppSettings = Annotated[Settings, Depends(get_settings)]
-AppAnswerer = Annotated[QuestionAnswerer, Depends(get_question_answerer)]
+AppOrchestrator = Annotated[Orchestrator, Depends(get_orchestrator)]
 
 SESSION_NOT_FOUND = "Session not found."
 
@@ -55,6 +56,7 @@ def to_reply(result: AnswerResult) -> AssistantReply:
         invalid_citations=list(result.invalid_citations),
         warnings=list(result.warnings),
         best_score=result.best_score,
+        agent_trace=[run.to_dict() for run in result.trace],
     )
 
 
@@ -93,7 +95,7 @@ def ask_in_session(
     request: AskRequest,
     db: DbSession,
     settings: AppSettings,
-    answerer: AppAnswerer,
+    orchestrator: AppOrchestrator,
 ) -> SessionAskResponse:
     """Answer like POST /api/ask, then save the question, the answer and the documents.
 
@@ -105,7 +107,7 @@ def ask_in_session(
     chat_session = get_session_or_404(repository, session_id)
 
     top_k = request.top_k or settings.retrieval_top_k
-    result = answer_or_503(answerer, db, request.question, top_k, request.document_ids)
+    result = answer_or_503(orchestrator, db, request.question, top_k, request.document_ids)
 
     if request.document_ids is None:
         # "Every document": record the documents that were actually searchable.

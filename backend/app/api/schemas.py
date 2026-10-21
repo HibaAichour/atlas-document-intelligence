@@ -1,10 +1,11 @@
 """Shapes of the JSON received and returned by the API."""
 
 from datetime import datetime
-from typing import Annotated, Any, Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
+from app.agents.trace import AgentRun, StepKind, StepStatus
 from app.db.models import DocumentStatus, Message, MessageMode, MessageRole
 from app.db.repositories import SessionSummary
 from app.rag.answering import AnswerStatus, AnswerWarning, RefusalReason
@@ -114,6 +115,20 @@ class CitationOut(BaseModel):
         )
 
 
+class AgentRunOut(BaseModel):
+    """One step of the Orchestrator's plan: which agent or tool ran, and how."""
+
+    name: str  # "retrieval", "writer", ...
+    kind: StepKind  # "agent" (calls the LLM) or "tool" (deterministic)
+    status: StepStatus  # "ok", "refused", "skipped" or "failed"
+    duration_ms: int
+    summary: str  # short technical note, e.g. "3 of 5 passages kept"
+
+    @classmethod
+    def from_run(cls, run: AgentRun) -> "AgentRunOut":
+        return cls(**run.to_dict())
+
+
 class AskResponse(BaseModel):
     """An answer with its checked sources, or a refusal."""
 
@@ -125,6 +140,7 @@ class AskResponse(BaseModel):
     invalid_citations: list[str]  # identifiers invented by the model, removed
     warnings: list[Literal["invalid_citations_removed", "no_valid_citation"]]
     best_score: float | None  # highest retrieval score, None if nothing was found
+    agent_trace: list[AgentRunOut]  # the steps run, in order (skipped ones included)
 
 
 class SessionSummaryOut(BaseModel):
@@ -167,7 +183,7 @@ class MessageOut(BaseModel):
     invalid_citations: list[str]
     warnings: list[AnswerWarning]
     best_score: float | None
-    agent_trace: list[dict[str, Any]]  # agents that ran, filled from step 9
+    agent_trace: list[AgentRunOut]  # the steps run (empty for questions and old answers)
     created_at: datetime
 
     @classmethod

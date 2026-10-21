@@ -76,6 +76,11 @@ def test_ask_returns_an_answer_with_checked_sources(
     assert body["warnings"] == []
     assert body["invalid_citations"] == []
     assert isinstance(body["best_score"], float)
+    assert [(run["name"], run["kind"], run["status"]) for run in body["agent_trace"]] == [
+        ("retrieval", "tool", "ok"),
+        ("writer", "agent", "ok"),
+    ]
+    assert all(run["duration_ms"] >= 0 for run in body["agent_trace"])
     # The model received the question and the passage, but no file name.
     prompt = fake_llm.calls[0].messages[1].content
     assert QUESTION in prompt
@@ -98,6 +103,10 @@ def test_ask_refuses_without_calling_the_model_below_the_threshold(
     assert body["citations"] == []
     assert body["best_score"] is not None
     assert fake_llm.calls == []
+    assert [(run["name"], run["status"]) for run in body["agent_trace"]] == [
+        ("retrieval", "ok"),
+        ("writer", "skipped"),
+    ]
 
 
 def test_ask_with_no_document_refuses_without_calling_the_model(

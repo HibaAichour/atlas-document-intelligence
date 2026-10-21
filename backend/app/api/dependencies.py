@@ -1,4 +1,4 @@
-"""Objects that FastAPI gives to the routes (database, indexer, retriever, LLM, RAG)."""
+"""Objects that FastAPI gives to the routes (database, indexer, retriever, LLM, agents)."""
 
 from collections.abc import Iterator
 from typing import Annotated
@@ -6,10 +6,10 @@ from typing import Annotated
 from fastapi import Depends, Request
 from sqlalchemy.orm import Session
 
+from app.agents.orchestrator import Orchestrator
 from app.agents.writer import Writer
 from app.core.config import Settings, get_settings
 from app.llm.base import LLMProvider
-from app.rag.answering import QuestionAnswerer
 from app.retrieval.indexing import DocumentIndexer
 from app.retrieval.retriever import Retriever
 
@@ -47,14 +47,14 @@ def get_llm_provider(request: Request) -> LLMProvider:
     return llm
 
 
-def get_question_answerer(
+def get_orchestrator(
     retriever: Annotated[Retriever, Depends(get_retriever)],
     llm: Annotated[LLMProvider, Depends(get_llm_provider)],
     settings: Annotated[Settings, Depends(get_settings)],
-) -> QuestionAnswerer:
-    """Return the RAG service: retriever, Writer and relevance threshold.
+) -> Orchestrator:
+    """Return the Orchestrator with its agents, the retriever and the threshold.
 
     Built for each request from objects created at startup, so it is cheap,
     and tests get the fake embedding model and the fake LLM automatically.
     """
-    return QuestionAnswerer(retriever, Writer(llm), min_score=settings.retrieval_min_score)
+    return Orchestrator(retriever, Writer(llm), min_score=settings.retrieval_min_score)

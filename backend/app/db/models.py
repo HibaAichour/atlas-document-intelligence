@@ -215,6 +215,10 @@ class Message(Base):
     invalid_citations: Mapped[list[str]] = mapped_column(JSON, default=list)
     warnings: Mapped[list[str]] = mapped_column(JSON, default=list)
     best_score: Mapped[float | None] = mapped_column(default=None)
+    # Added at step 9 (nullable, so an existing database gets them at startup):
+    # the Critic's verdict on the answer, and the values of an extraction.
+    review: Mapped[dict[str, Any] | None] = mapped_column(JSON, default=None)
+    extraction: Mapped[dict[str, Any] | None] = mapped_column(JSON, default=None)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utc_now)
 
     session: Mapped[ChatSession] = relationship(back_populates="messages")
