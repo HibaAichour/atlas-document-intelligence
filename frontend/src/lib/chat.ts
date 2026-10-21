@@ -66,6 +66,24 @@ export function nextMessageId(messages: readonly ChatMessage[]): number {
   return messages.reduce((largest, message) => Math.max(largest, message.id), 0) + 1
 }
 
+/** Turn a saved answer into the AskResponse the chat shows, with its question.
+ * Returns null for an assistant message without a status (cannot be shown). */
+export function toAskResponse(question: string, message: StoredMessage): AskResponse | null {
+  if (message.status === null) {
+    return null
+  }
+  return {
+    question,
+    status: message.status,
+    answer: message.content,
+    refusal_reason: message.refusal_reason,
+    citations: message.citations,
+    invalid_citations: message.invalid_citations,
+    warnings: message.warnings,
+    best_score: message.best_score,
+  }
+}
+
 /** Turn the saved messages of a session into the messages shown in the chat.
  *
  * Each saved answer becomes the same AskResponse as a live answer, with the
@@ -81,25 +99,13 @@ export function restoreMessages(stored: readonly StoredMessage[]): ChatMessage[]
     if (message.role === 'user') {
       lastQuestion = message.content
       restored.push({ id, role: 'user', text: message.content })
-    } else if (message.status !== null) {
-      restored.push({
-        id,
-        role: 'assistant',
-        status: 'done',
-        response: {
-          question: lastQuestion,
-          status: message.status,
-          answer: message.content,
-          refusal_reason: message.refusal_reason,
-          citations: message.citations,
-          invalid_citations: message.invalid_citations,
-          warnings: message.warnings,
-          best_score: message.best_score,
-        },
-        seconds: null,
-      })
+      continue
     }
+    const response = toAskResponse(lastQuestion, message)
     // An assistant message without a status cannot be shown as an answer: skipped.
+    if (response !== null) {
+      restored.push({ id, role: 'assistant', status: 'done', response, seconds: null })
+    }
   }
   return restored
 }

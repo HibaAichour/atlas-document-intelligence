@@ -1,12 +1,12 @@
 // State of the document list: loading, upload, and which documents questions use.
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import { listDocuments, uploadDocument } from '../api/client'
 import type { DocumentInfo } from '../api/types'
-import { isUsable, toggleId, usableIds } from '../lib/documents'
 import { errorText } from '../lib/errors'
 import { useMessages } from '../lib/i18n'
+import { selectedIdsOf, selectUploaded, toggleDocument, type Selection } from '../lib/selection'
 
 export type ListState = 'loading' | 'loaded' | 'error'
 
@@ -15,11 +15,15 @@ export function useDocuments() {
   const [documents, setDocuments] = useState<DocumentInfo[]>([])
   const [listState, setListState] = useState<ListState>('loading')
   const [listError, setListError] = useState<string | null>(null)
-  // Ids of the documents used to answer questions. Every usable document is
-  // selected when the list loads, and each new upload is selected too.
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set())
+  // Which documents questions use: "all" for a new session (every usable
+  // document, uploads included), or the documents chosen or restored.
+  const [selection, setSelection] = useState<Selection>('all')
   const [isUploading, setIsUploading] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
+
+  // Computed from the selection and the list, so a selection restored before
+  // the list has loaded is applied as soon as the documents arrive.
+  const selectedIds = useMemo(() => selectedIdsOf(selection, documents), [selection, documents])
 
   useEffect(() => {
     // Cancels the request if the component disappears before it finishes.
@@ -27,7 +31,6 @@ export function useDocuments() {
     listDocuments(controller.signal)
       .then((items) => {
         setDocuments(items)
-        setSelectedIds(new Set(usableIds(items)))
         setListState('loaded')
       })
       .catch((error: unknown) => {
@@ -45,9 +48,7 @@ export function useDocuments() {
       const document = await uploadDocument(file)
       // Newest first, like the list returned by the backend.
       setDocuments((current) => [document, ...current.filter((item) => item.id !== document.id)])
-      if (isUsable(document)) {
-        setSelectedIds((current) => new Set(current).add(document.id))
-      }
+      setSelection((current) => selectUploaded(current, document))
     } catch (error) {
       setUploadError(errorText(error, t.unexpectedError))
     } finally {
@@ -56,8 +57,23 @@ export function useDocuments() {
   }
 
   function toggle(id: string): void {
-    setSelectedIds((current) => toggleId(current, id))
+    setSelection((current) => toggleDocument(current, documents, id))
   }
 
-  return { documents, listState, listError, selectedIds, isUploading, uploadError, upload, toggle }
+  /** Replace the selection, when a session is opened or a new one is started. */
+  function select(next: Selection): void {
+    setSelection(next)
+  }
+
+  return {
+    documents,
+    listState,
+    listError,
+    selectedIds,
+    isUploading,
+    uploadError,
+    upload,
+    toggle,
+    select,
+  }
 }

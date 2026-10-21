@@ -88,7 +88,7 @@
   background-color: var(--color-danger);
 }
 
-/* Workspace: documents on the left, conversation in the middle */
+/* Workspace: sessions and documents on the left, conversation in the middle */
 
 .workspace {
   flex: 1;
@@ -110,6 +110,119 @@
   }
 }
 
+/* Left column: the sessions panel above the documents panel. */
+.sidebar {
+  align-self: start;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  min-width: 0;
+  min-height: 0;
+}
+
+/* Raised tiles (sessions and documents) on hover: the tile rises towards the
+   viewer and takes the same turquoise tint as the questions in the chat. */
+:root {
+  --tile-hover-fill: linear-gradient(180deg, rgba(20, 163, 160, 0.2), rgba(12, 124, 122, 0.12));
+  --tile-hover-border: rgba(20, 163, 160, 0.45);
+  --tile-hover-depth:
+    inset 0 1px 0 #ffffff, 0 2px 4px var(--shadow-soft), 0 18px 28px -12px var(--shadow-strong);
+  --tile-hover-lift: translateY(-3px) scale(1.015);
+  --tile-transition:
+    transform 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease,
+    border-color 0.18s ease;
+}
+
+/* Sessions panel */
+
+.sessions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-5);
+}
+
+.session-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-height: 13.5rem;
+  margin: 0;
+  /* Room for the raised tiles and their shadows inside the scrolling list. */
+  padding: 4px 5px 8px 3px;
+  overflow-y: auto;
+  list-style: none;
+}
+
+/* Each session is a raised pane of glass, like a document, that can be clicked. */
+.session {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-radius: var(--radius-control);
+  background-color: var(--glass-fill-tile);
+  box-shadow: var(--tile-depth);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: var(--tile-transition);
+}
+
+.session:hover:not(:disabled, .session-current) {
+  transform: var(--tile-hover-lift);
+  border-color: var(--tile-hover-border);
+  background: var(--tile-hover-fill);
+  box-shadow: var(--tile-hover-depth);
+}
+
+.session:hover:not(:disabled, .session-current) .session-title {
+  color: var(--color-accent-deep);
+}
+
+/* Pressed: the tile goes back down, as if pushed. */
+.session:active:not(:disabled, .session-current) {
+  transform: none;
+  box-shadow: var(--tile-depth);
+}
+
+.session:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* The open session gets the same coral edge as a checked document. */
+.session-current,
+.session-current:disabled {
+  box-shadow:
+    inset 3px 0 0 var(--color-coral),
+    var(--tile-depth);
+  opacity: 1;
+  cursor: default;
+}
+
+/* A new session is not saved until its first question: shown in italics. */
+.session-draft .session-title {
+  font-style: italic;
+  font-weight: 500;
+}
+
+.session-title {
+  overflow: hidden;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.session-meta {
+  color: var(--color-muted);
+  font-size: 0.8125rem;
+}
+
 /* Documents panel */
 
 .documents {
@@ -118,6 +231,11 @@
   flex-direction: column;
   gap: var(--space-3);
   padding: var(--space-5);
+}
+
+/* Inside the left column, both panels take its full width. */
+.sidebar > .documents {
+  align-self: stretch;
 }
 
 .documents-header {
@@ -165,16 +283,18 @@
   border-radius: var(--radius-control);
   background-color: var(--glass-fill-tile);
   box-shadow: var(--tile-depth);
-  transition:
-    transform 0.15s ease,
-    box-shadow 0.15s ease;
+  transition: var(--tile-transition);
 }
 
 .document:has(.document-label):hover {
-  transform: translateY(-1px);
-  box-shadow:
-    var(--tile-depth),
-    0 14px 24px -12px var(--shadow-strong);
+  transform: var(--tile-hover-lift);
+  border-color: var(--tile-hover-border);
+  background: var(--tile-hover-fill);
+  box-shadow: var(--tile-hover-depth);
+}
+
+.document:has(.document-label):hover .document-name {
+  color: var(--color-accent-deep);
 }
 
 /* A checked document gets a coral edge on the left. */
@@ -182,6 +302,13 @@
   box-shadow:
     inset 3px 0 0 var(--color-coral),
     var(--tile-depth);
+}
+
+/* It keeps its coral edge while it rises. */
+.document:has(.document-check:checked):hover {
+  box-shadow:
+    inset 3px 0 0 var(--color-coral),
+    var(--tile-hover-depth);
 }
 
 /* Checkbox (or an empty cell for a document that cannot be used), then the text. */
@@ -605,7 +732,8 @@
   }
 }
 
-/* On a wide screen the page fits the window: only the messages scroll. */
+/* On a wide screen the page fits the window: only the messages scroll,
+   and in the left column, the session list and the document panel. */
 @media (min-width: 801px) {
   .app {
     height: 100vh;
@@ -615,7 +743,16 @@
     min-height: 0;
   }
 
+  .sidebar {
+    max-height: 100%;
+  }
+
+  .sessions {
+    flex: none;
+  }
+
   .documents {
+    min-height: 0;
     max-height: 100%;
     overflow-y: auto;
   }

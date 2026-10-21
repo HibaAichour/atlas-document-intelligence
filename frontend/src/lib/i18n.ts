@@ -3,11 +3,27 @@
 // dictionary of the same type: TypeScript will then report any missing text.
 
 const en = {
+  // Language used to write dates and times ("19 Oct", "18:12").
+  dateLocale: 'en-GB',
+
   brandTagline: 'Answers from your documents, with the page they come from',
 
   healthChecking: 'Connecting to the backend…',
   healthOnline: (version: string) => `Backend online, version ${version}`,
   healthOffline: 'Backend unreachable',
+
+  sessionsTitle: 'Sessions',
+  newSessionButton: 'New session',
+  newSessionTitle: 'New session',
+  newSessionNote: 'Saved with its first question',
+  untitledSession: 'Untitled session',
+  loadingSessions: 'Loading sessions…',
+  sessionsErrorHint: 'Past sessions cannot be shown for now.',
+  sessionOpenFailed: 'This session could not be opened.',
+  waitBeforeSwitching: 'Wait for the answer before changing session.',
+  messageCount: (count: number) => (count === 1 ? '1 message' : `${count} messages`),
+  today: (time: string) => `Today, ${time}`,
+  yesterday: 'Yesterday',
 
   documentsTitle: 'Documents',
   uploadButton: 'Upload a file',
