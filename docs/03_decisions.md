@@ -10,6 +10,54 @@ Format : une entrée par décision, la plus récente en haut.
 - **Conséquences** : impact sur le projet, lien avec la V2
 
 ---
+## [2026-10-21] Nouvelle étape « Bilingue FR/EN » après l'étape 10
+- **Contexte** : l'application doit être utilisable en français et en anglais, au choix de l'utilisateur. Ce n'était pas prévu dans la vision V1.
+- **Décision** : une étape dédiée, placée après l'export (étape 10) et avant l'évaluation (étape 11). Elle couvre l'interface, les messages du backend, la langue des agents, un modèle d'embedding multilingue (avec ré-indexation et nouveau calibrage du seuil), un document de démo en français et l'export. Dès l'étape 7, tous les textes de l'interface sont rangés dans un dictionnaire typé (`lib/i18n.ts`, anglais seulement) et les composants appellent `useMessages()`.
+- **Alternatives écartées** : traduire seulement l'interface (l'application resterait anglophone dans ses réponses et ses erreurs) ; tout faire pendant l'étape 7 (il faudrait revenir sur chaque étape suivante) ; reporter en V2 (choix de l'utilisatrice).
+- **Conséquences** : environ 3 à 5 jours de plus avant la première candidature. Placée ici, l'évaluation pourra mesurer les deux langues, et la démo, la vidéo et le README pourront montrer le changement de langue. Le choix du modèle d'embedding multilingue devra respecter les 8 Go de RAM. Sur le CV : rien tant que l'étape n'est pas faite.
+
+## [2026-10-21] Frontend : couches lib, hooks et components
+- **Contexte** : première interface React pour une débutante ; il faut un code lisible, testable et sans outil superflu.
+- **Décision** : `api/` (client typé : tous les appels réseau, erreurs converties en `ApiError` avec un message lisible), `lib/` (fonctions pures testées avec Vitest), `hooks/` (état : `useDocuments`, `useChat`), `components/` (affichage). Types recopiés à la main depuis les schémas Pydantic, en snake_case. Une seule page, état géré par React seul (`useState`, `useReducer` pour la conversation), CSS simple avec variables.
+- **Alternatives écartées** : `react-router` (un seul écran) ; Redux, Zustand ou React Query (inutiles à cette taille) ; génération des types depuis l'OpenAPI (un outil de plus) ; Tailwind ou une bibliothèque de composants ; tests de composants (React Testing Library, à reconsidérer à l'étape 11).
+- **Conséquences** : 31 tests frontend en moins d'une seconde. Un champ ajouté à l'API doit être recopié dans `api/types.ts`. Vitest 5 (compatible avec Vite 8), lancé par `npm test`.
+
+## [2026-10-21] Design « Lagon » : verre dépoli, turquoise et corail
+- **Contexte** : l'interface doit être moderne, originale et professionnelle pour une démo devant des recruteurs. Plusieurs directions ont été comparées sur des captures (bleu vif, bleu marine, or, pastel, soleil, lagon, lagon très clair).
+- **Décision** : panneaux en verre dépoli (`backdrop-filter`) avec reflet sur le bord supérieur et ombres superposées teintées de turquoise ; fond lumineux turquoise en haut à droite et corail en bas à gauche, sans formes géométriques ; turquoise profond (`#0C7C7A`) pour les actions, corail (`#FF7F66`) en petites touches, texte `#16323A`. IBM Plex Serif pour le nom, les titres et le texte issu des documents ; Manrope pour l'interface. Polices intégrées avec `@fontsource`.
+- **Alternatives écartées** : Google Fonts (dépend d'un service tiers, ne marche pas hors ligne) ; les autres directions, écartées par l'utilisatrice (bleu qui tirait vers le violet, logo, cercles en arrière-plan, couleurs trop présentes ou effet verre trop faible).
+- **Conséquences** : rendu identique en développement, dans Docker et en ligne. Le flou du verre demande un peu de calcul au navigateur, sans gêne sur le Mac de développement. Les polices ajoutent des fichiers à l'image, mais le navigateur ne télécharge que le sous-ensemble latin.
+
+## [2026-10-21] Panneau des documents : sélection par cases à cocher
+- **Contexte** : plusieurs documents sont indexés ; il faut pouvoir limiter une question à certains d'entre eux, comme avec `document_ids` dans l'API.
+- **Décision** : une case par document prêt ; tous les documents prêts sont cochés au chargement et chaque nouveau téléversement est coché. Un document en échec n'a pas de case et affiche sa raison en rouge. Sans document coché, la question est désactivée. Les identifiants cochés sont envoyés avec chaque question.
+- **Alternatives écartées** : « aucune case cochée = tous les documents » (deux sens pour le même état, source de confusion).
+- **Conséquences** : la sélection est perdue au rechargement de la page jusqu'à l'étape 8, où chaque session aura ses documents (`session_documents`).
+
+## [2026-10-21] Chat : une question à la fois, refus affichés par le frontend
+- **Contexte** : le modèle local met 5 à 30 secondes par réponse, et les deux types de refus doivent être compréhensibles en démo.
+- **Décision** : la conversation est gérée par un reducer pur (`chatReducer`) ; une seule question à la fois (bouton désactivé pendant la génération) ; attente visible (trois points animés et message) ; temps de réponse mesuré par le navigateur et affiché ; message de refus écrit par le frontend à partir de `refusal_reason`, avec une phrase différente pour le seuil et pour `NOT_FOUND` ; avertissements dans un encadré discret.
+- **Alternatives écartées** : streaming de la réponse (plus complexe, hors périmètre V1) ; afficher le texte de refus du backend (il deviendra traduisible côté frontend).
+- **Conséquences** : en local, 0,1 s pour un refus par le seuil, 1 à 2 s pour un refus par le modèle, environ 6 s pour une réponse citée. La conversation n'est pas conservée au rechargement (étape 8).
+
+## [2026-10-21] Citations cliquables, découpées côté frontend
+- **Contexte** : chaque citation `[fichier, p. X]` doit ouvrir le passage exact sur lequel repose la réponse.
+- **Décision** : fonction pure `splitAnswer` qui découpe la réponse sur les textes exacts de `citation.display` (marqueurs les plus longs d'abord, caractères spéciaux échappés) et regroupe les passages d'une même page sous un seul marqueur. Chaque marqueur devient une pastille cliquable ; un panneau Source affiche le fichier, la page, le texte de chaque passage et son score de similarité. Fermeture par le bouton ou la touche Échap ; le focus clavier passe sur le panneau. Troisième colonne sur grand écran, panneau flottant sous 1100 px.
+- **Alternatives écartées** : réponse renvoyée en morceaux structurés par le backend (changement d'une API qui fonctionne) ; affichage de la page entière ou du PDF d'origine (bibliothèque lourde, hors périmètre V1).
+- **Conséquences** : aucun changement côté backend, aucune requête supplémentaire. Le format de `display` est désormais un contrat entre le backend et le frontend.
+
+## [2026-10-21] Texte des passages rendu lisible à l'affichage seulement
+- **Contexte** : le texte extrait des PDF garde les retours à la ligne de la page imprimée, souvent au milieu d'une phrase.
+- **Décision** : fonction pure `readableText` qui joint les lignes coupées et ne garde que les retours après `.`, `!`, `?` ou `:`, ainsi que les lignes vides.
+- **Alternatives écartées** : nettoyer le texte à l'ingestion (changerait les chunks, les embeddings et le texte envoyé au modèle, donc imposerait une ré-indexation et un nouveau calibrage).
+- **Conséquences** : seul l'affichage change. Un titre sans ponctuation finale est joint à la ligne suivante.
+
+## [2026-10-21] Frontend validé dans Docker
+- **Contexte** : l'interface doit fonctionner compilée et servie par Nginx, comme en production.
+- **Décision** : aucune modification des Dockerfiles ni de la configuration Nginx ; reconstruction avec `docker compose up -d --build`.
+- **Alternatives écartées** : aucune.
+- **Conséquences** : parcours complet validé sur `localhost:8080` (question, réponse citée, panneau Source, polices intégrées). L'image `python:3.13-slim` a de nouveau changé d'empreinte entre deux builds du même jour, ce qui a reconstruit le backend sans changement de code : à prendre en compte dans la décision de l'étape 12 sur le fait de figer l'image de base.
+
 ## [2026-10-21] Image de base Docker non figée, à examiner à l'étape 12
 - **Contexte** : le build du backend a pris 7 minutes au lieu de quelques secondes, alors que `requirements.txt` n'avait pas changé : l'image `python:3.13-slim` avait été mise à jour par ses mainteneurs, ce qui invalide tout le cache (Tesseract, puis `pip install`).
 - **Décision** : ne rien changer en V1.

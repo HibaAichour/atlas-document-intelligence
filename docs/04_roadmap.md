@@ -1,6 +1,6 @@
 # Roadmap ATLAS V1
 
-Cocher les cases au fur et à mesure. Durée totale estimée : 35 à 45 jours de travail effectif.
+Cocher les cases au fur et à mesure. Durée totale estimée : 38 à 50 jours de travail effectif.
 
 ## Étape 0 : Préparer la machine (1 jour)
 - [x] Git, Python 3.11+, Node 20+, Docker Desktop, VS Code
@@ -48,9 +48,9 @@ Cocher les cases au fur et à mesure. Durée totale estimée : 35 à 45 jours de
 - **Fin** : question dans l'API, réponse citée et vérifiable (premier jalon démontrable)
 
 ## Étape 7 : Frontend principal (4 à 5 jours)
-- [ ] Page d'upload et liste des documents
-- [ ] Interface de chat
-- [ ] Sources cliquables
+- [x] Page d'upload et liste des documents
+- [x] Interface de chat
+- [x] Sources cliquables
 - **Fin** : parcours complet dans le navigateur
 
 ## Étape 8 : Historique des sessions (2 jours)
@@ -72,9 +72,18 @@ Cocher les cases au fur et à mesure. Durée totale estimée : 35 à 45 jours de
 - [ ] Bouton Exporter, sources incluses
 - **Fin** : fichiers propres générés
 
+## Étape 10 bis : Bilingue FR/EN (3 à 5 jours)
+- [ ] Interface : dictionnaire français, sélecteur de langue, choix mémorisé
+- [ ] Messages du backend (erreurs, refus) dans la langue choisie
+- [ ] Agents : réponses, extractions et vérifications dans la langue de l'utilisateur
+- [ ] Modèle d'embedding multilingue (RAM mesurée), ré-indexation, nouveau calibrage du seuil
+- [ ] Document de démo en français
+- [ ] Export Word et PowerPoint traduit
+- **Fin** : les scénarios de démo fonctionnent en français et en anglais
+
 ## Étape 11 : Tests et mini-évaluation (2 à 3 jours)
 - [ ] Tests unitaires des composants clés
-- [ ] Jeu de 15 à 20 questions avec réponses attendues
+- [ ] Jeu de 15 à 20 questions avec réponses attendues (FR et EN)
 - [ ] Script de score
 - **Fin** : score affiché
 
