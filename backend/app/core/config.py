@@ -53,9 +53,13 @@ class Settings(BaseSettings):
     retrieval_top_k: int = Field(default=5, ge=1, le=20)
     # Relevance threshold (cosine similarity). A question whose passages all
     # score below it is refused without calling the LLM, and only passages at
-    # or above it are given to the Writer. Provisional value, to be calibrated
-    # on the demo documents; it depends on the embedding model.
-    retrieval_min_score: float = Field(default=0.5, ge=0.0, le=1.0)
+    # or above it are given to the Writer. Calibrated at step 6 on the demo
+    # contract with nomic-embed-text: the passages that answer a question
+    # scored 0.645 or more, off-topic questions 0.454 to 0.541. Absent but
+    # related questions (0.613 to 0.638) pass and are refused by the Writer
+    # (NOT_FOUND). Recalibrate with "python -m scripts.probe_scores" whenever
+    # the embedding model changes.
+    retrieval_min_score: float = Field(default=0.6, ge=0.0, le=1.0)
 
     # Storage: SQLite database and uploaded files (relative to the working directory)
     data_dir: Path = Path("data")
