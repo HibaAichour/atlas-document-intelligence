@@ -10,6 +10,54 @@ Format : une entrée par décision, la plus récente en haut.
 - **Conséquences** : impact sur le projet, lien avec la V2
 
 ---
+## [2026-10-21] Image de base Docker non figée, à examiner à l'étape 12
+- **Contexte** : le build du backend a pris 7 minutes au lieu de quelques secondes, alors que `requirements.txt` n'avait pas changé : l'image `python:3.13-slim` avait été mise à jour par ses mainteneurs, ce qui invalide tout le cache (Tesseract, puis `pip install`).
+- **Décision** : ne rien changer en V1.
+- **Alternatives écartées** : figer l'image par son empreinte (`python:3.13-slim@sha256:...`) dès maintenant (builds reproductibles, mais plus de correctifs de sécurité automatiques : c'est une question de déploiement).
+- **Conséquences** : un build complet reste possible de temps en temps. La question sera tranchée à l'étape 12, avec le Docker de production.
+
+## [2026-10-21] Seuil de pertinence calibré à 0,60 sur le contrat de démo
+- **Contexte** : le refus sans appel au LLM dépend d'un seuil sur le score de similarité ; il devait être calibré sur un vrai document de démo (voir l'entrée du 2026-10-20).
+- **Décision** : `RETRIEVAL_MIN_SCORE = 0.6`. Seuls les passages au-dessus du seuil sont envoyés au Writer. Mesures avec `nomic-embed-text` sur 18 questions (script `python -m scripts.probe_scores`) : les passages qui répondent à une question obtiennent 0,645 ou plus ; les questions hors sujet 0,454 à 0,541 ; les questions absentes mais proches du sujet 0,613 à 0,638.
+- **Alternatives écartées** : 0,65 (refuserait toutes les questions absentes, mais supprimerait le passage qui répond sur les signataires, à 0,645) ; 0,50 (presque tout irait jusqu'au LLM : plus lent et plus de risque d'invention).
+- **Conséquences** : les questions hors sujet sont refusées immédiatement (scénario 2 : salaire du CEO, 0,540). Les questions proches du sujet passent le seuil et sont refusées par le modèle (`NOT_FOUND`), vérifié avec `qwen2.5:3b`. Le seuil dépend du modèle d'embedding : à recalibrer à l'étape 12 avec le fournisseur d'embeddings en ligne, et après l'ajout des autres documents de démo. Le script et ses questions serviront de base à l'étape 11.
+
+## [2026-10-21] Contrat de démo fictif : service_agreement.pdf
+- **Contexte** : calibrer le seuil et tester le Writer sur des documents de trois phrases n'est pas représentatif.
+- **Décision** : contrat de services fictif en anglais (Helix Data Services Ltd. / Orion Freight Co.), PDF texte de 6 pages, un article par page, dans `demo_documents/`. La page 4 contient plusieurs délais (60, 30 et 90 jours) ; le nom du CEO figure page 6, mais aucun salaire.
+- **Alternatives écartées** : créer les trois documents de démo maintenant (la facture scannée et la revue PPTX serviront aux étapes 9 et 10).
+- **Conséquences** : chaque réponse a une page source unique et vérifiable. Scénarios 1 et 2 validés en natif et dans Docker. Le document de test `test_document.docx` concurrence le contrat dans l'index natif : les tests de bout en bout limitent la question au contrat (`document_ids`).
+
+## [2026-10-21] POST /api/ask : un refus est une réponse normale
+- **Contexte** : le frontend doit distinguer « l'information est absente » de « le service est en panne ».
+- **Décision** : `POST /api/ask` (`question`, `top_k`, `document_ids`) renvoie toujours 200 avec `status` (`answered` / `refused`), `refusal_reason` (`no_relevant_passages` / `not_found_by_model`), `answer`, `citations` (passage complet : chunk, document, page, texte, score), `invalid_citations`, `warnings` et `best_score`. Erreur 503 si l'embedding ou le LLM est injoignable, ou si la réponse ne contient que des citations inventées. Le message de refus est une constante du code.
+- **Alternatives écartées** : refuser une réponse sans citation valide (bloquerait des réponses correctes mal formatées par le 3B ; elle est renvoyée avec l'avertissement `no_valid_citation`) ; une erreur 404 pour un refus (un refus n'est pas une erreur).
+- **Conséquences** : le frontend dispose de tout pour rendre les sources cliquables (étape 7). `best_score` aide au calibrage et au débogage.
+
+## [2026-10-21] Service QuestionAnswerer dans app/rag, sans Orchestrator
+- **Contexte** : l'Orchestrator n'arrive qu'à l'étape 9, mais l'étape 6 doit répondre à une question de bout en bout.
+- **Décision** : classe `QuestionAnswerer` (retriever, seuil, Writer, vérification des citations) dans un nouveau dossier `app/rag/`, avec le module de citations. Dépendance `get_question_answerer` construite à chaque requête à partir d'objets créés au démarrage.
+- **Alternatives écartées** : un Orchestrator dès maintenant (étape 9) ; tout mettre dans la route (impossible à réutiliser et à tester sans HTTP).
+- **Conséquences** : le plan `ask` de l'Orchestrator réutilisera ces briques sans réécriture. Dossier `app/rag/` absent de la structure de `02_architecture.md`, à mettre à jour à l'étape 13.
+
+## [2026-10-21] Writer : passages anonymes et mot-clé NOT_FOUND
+- **Contexte** : un modèle de 3B recopie mal les sources et invente quand l'information manque.
+- **Décision** : le Writer reçoit les passages sous la seule forme `[S1]` + texte, sans nom de fichier ni numéro de page. Prompt court en anglais : réponse uniquement depuis les passages, citation `[Sx]` après chaque phrase, réponse exacte `NOT_FOUND` si l'information est absente. Température 0. La détection du refus tolère les variantes (`**NOT_FOUND**`, `Not found.`) mais ignore « not found » au milieu d'une phrase et toute réponse qui contient des citations. Une réponse vide du modèle est une erreur, pas un refus.
+- **Alternatives écartées** : détecter une phrase de refus libre (« I couldn't find… »), peu fiable ; afficher le texte de refus du modèle.
+- **Conséquences** : le modèle ne peut pas inventer une source. Il ne peut pas non plus répondre à « quelle page parle de… ? » (hors scénarios V1). Avec `qwen2.5:3b`, la réponse au scénario 1 est juste et bien citée, mais contient une redite et confond délai de remédiation et préavis : cas laissé au Critic (étape 9) plutôt que d'ajuster le prompt sur une seule question, et à garder pour le jeu d'évaluation de l'étape 11.
+
+## [2026-10-21] Citations vérifiées par le code
+- **Contexte** : le backend doit vérifier chaque identifiant cité avant de le convertir en `[NomDocument, p. X]`.
+- **Décision** : module `app/rag/citations.py` (fonctions pures). La numérotation S1…Sn est définie à un seul endroit (`number_passages`), partagée avec le Writer. Variantes comprises : `[S1, S3]`, `[s2]`, `[S1][S2]`, `[S01]`, `[S1; S4]`. Seuls les marqueurs entre crochets commençant par `S` sont reconnus (`[Note]` et `[1]` restent intacts). Les identifiants inventés sont retirés du texte et listés. Deux passages de la même page s'affichent une seule fois, mais restent tous deux dans la liste des sources. Le nom de fichier complet est affiché (`contract.pdf`).
+- **Alternatives écartées** : reconnaître `S1` sans crochets (faux positifs dans le texte).
+- **Conséquences** : l'utilisateur ne voit jamais de lien mort ; les citations inventées restent traçables pour le Critic.
+
+## [2026-10-21] LLM créé au démarrage, faux LLM injectable dans les tests
+- **Contexte** : les routes ont besoin du LLM, et les tests ne doivent pas dépendre d'Ollama.
+- **Décision** : `build_llm_provider` est appelé au démarrage (`app.state.llm`), sans contacter le serveur ; dépendance `get_llm_provider`. Dans `conftest.py`, `FakeLLMProvider` renvoie des réponses programmées, enregistre chaque appel (messages, température, mode JSON), peut simuler une panne et fait échouer le test s'il est appelé sans réponse prévue. La fixture `client` l'injecte par `dependency_overrides`.
+- **Alternatives écartées** : `unittest.mock` (accepte n'importe quel appel, moins lisible).
+- **Conséquences** : le serveur démarre même si Ollama est arrêté. Les tests peuvent vérifier le prompt et l'absence d'appel au LLM lors d'un refus. 207 tests passent sans réseau.
+
 ## [2026-10-20] Image backend : 1,06 Go avec Chroma, accepté pour l'instant
 - **Contexte** : l'ajout de `chromadb` fait passer l'image backend de 491 Mo à 1,06 Go sur le disque (de 118 à 233 Mo compressés). Le cache de pip est déjà désactivé (`PIP_NO_CACHE_DIR=1`) : la hausse vient uniquement des dépendances de Chroma (`onnxruntime`, `grpcio`, `kubernetes`, etc.).
 - **Décision** : accepter cette taille en V1. La RAM, vraie contrainte de la machine, n'est pas touchée (environ 120 Mo pour Chroma).

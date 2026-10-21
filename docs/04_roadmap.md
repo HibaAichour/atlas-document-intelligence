@@ -42,9 +42,9 @@ Cocher les cases au fur et à mesure. Durée totale estimée : 35 à 45 jours de
 - **Fin** : une requête retourne les bons passages avec sources
 
 ## Étape 6 : RAG avec citations + Writer (3 à 4 jours)
-- [ ] Prompt forçant la réponse depuis les passages
-- [ ] Citations `[Document, p. X]`
-- [ ] Refus si information absente
+- [x] Prompt forçant la réponse depuis les passages
+- [x] Citations `[Document, p. X]`
+- [x] Refus si information absente
 - **Fin** : question dans l'API, réponse citée et vérifiable (premier jalon démontrable)
 
 ## Étape 7 : Frontend principal (4 à 5 jours)
