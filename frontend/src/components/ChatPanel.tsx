@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 
 
 import type { AskResponse } from '../api/types'
 import type { ChatMessage } from '../lib/chat'
+import { citationLabel, splitAnswer, type OpenSource } from '../lib/citations'
 import { useMessages, type Messages } from '../lib/i18n'
 
 // Same limit as the backend (MAX_QUERY_LENGTH), so a question is never refused.
@@ -12,9 +13,18 @@ interface ChatPanelProps {
   isWaiting: boolean
   canAsk: boolean // false when no usable document is selected
   onAsk: (question: string) => void
+  openSource: OpenSource | null
+  onOpenSource: (source: OpenSource) => void
 }
 
-export function ChatPanel({ messages, isWaiting, canAsk, onAsk }: ChatPanelProps) {
+export function ChatPanel({
+  messages,
+  isWaiting,
+  canAsk,
+  onAsk,
+  openSource,
+  onOpenSource,
+}: ChatPanelProps) {
   const t = useMessages()
   const [draft, setDraft] = useState('')
   const endRef = useRef<HTMLDivElement>(null)
@@ -54,7 +64,15 @@ export function ChatPanel({ messages, isWaiting, canAsk, onAsk }: ChatPanelProps
             <p>{t.introText}</p>
           </div>
         ) : (
-          messages.map((message) => <MessageView key={message.id} message={message} t={t} />)
+          messages.map((message) => (
+            <MessageView
+              key={message.id}
+              message={message}
+              openSource={openSource}
+              onOpenSource={onOpenSource}
+              t={t}
+            />
+          ))
         )}
         <div ref={endRef} />
       </div>
@@ -79,7 +97,14 @@ export function ChatPanel({ messages, isWaiting, canAsk, onAsk }: ChatPanelProps
   )
 }
 
-function MessageView({ message, t }: { message: ChatMessage; t: Messages }) {
+interface MessageViewProps {
+  message: ChatMessage
+  openSource: OpenSource | null
+  onOpenSource: (source: OpenSource) => void
+  t: Messages
+}
+
+function MessageView({ message, openSource, onOpenSource, t }: MessageViewProps) {
   if (message.role === 'user') {
     return <p className="message-question">{message.text}</p>
   }
@@ -103,18 +128,28 @@ function MessageView({ message, t }: { message: ChatMessage; t: Messages }) {
       </div>
     )
   }
-  return <AnswerView response={message.response} seconds={message.seconds} t={t} />
+  return (
+    <AnswerView
+      answerId={message.id}
+      response={message.response}
+      seconds={message.seconds}
+      openSource={openSource}
+      onOpenSource={onOpenSource}
+      t={t}
+    />
+  )
 }
 
-function AnswerView({
-  response,
-  seconds,
-  t,
-}: {
+interface AnswerViewProps {
+  answerId: number
   response: AskResponse
   seconds: number
+  openSource: OpenSource | null
+  onOpenSource: (source: OpenSource) => void
   t: Messages
-}) {
+}
+
+function AnswerView({ answerId, response, seconds, openSource, onOpenSource, t }: AnswerViewProps) {
   const timing = t.answeredIn(seconds)
 
   if (response.status === 'refused') {
@@ -134,7 +169,29 @@ function AnswerView({
 
   return (
     <div className="answer">
-      <p className="answer-text">{response.answer}</p>
+      <p className="answer-text">
+        {splitAnswer(response.answer, response.citations).map((segment, index) => {
+          if (segment.kind === 'text') {
+            return <span key={index}>{segment.text}</span>
+          }
+          const label = citationLabel(segment.display)
+          const isOpen = openSource?.answerId === answerId && openSource.display === segment.display
+          return (
+            <button
+              key={index}
+              type="button"
+              className={isOpen ? 'citation citation-open' : 'citation'}
+              aria-pressed={isOpen}
+              aria-label={t.openSource(label)}
+              onClick={() =>
+                onOpenSource({ answerId, display: segment.display, citations: segment.citations })
+              }
+            >
+              {label}
+            </button>
+          )
+        })}
+      </p>
       {response.warnings.includes('invalid_citations_removed') && (
         <p className="answer-warning">{t.warningInvalidCitations}</p>
       )}

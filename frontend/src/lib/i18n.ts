@@ -42,6 +42,14 @@ const en = {
     count === 0 ? 'No source.' : count === 1 ? '1 source.' : `${count} sources.`,
   answeredIn: (seconds: number) => `Answered in ${seconds.toFixed(1)} s.`,
 
+  openSource: (label: string) => `Show the source: ${label}`,
+  sourceTitle: 'Source',
+  closeSource: 'Close',
+  pageLabel: (page: number) => `Page ${page}`,
+  sourceExplanation: 'The passage the answer relies on, exactly as extracted from the document.',
+  passageOf: (index: number, total: number) => `Passage ${index} of ${total}`,
+  similarity: (score: number) => `Similarity to the question: ${score.toFixed(2)}`,
+
   unexpectedError: 'Something unexpected happened.',
 }
 
