@@ -51,6 +51,11 @@ class Settings(BaseSettings):
 
     # Retrieval: number of passages returned by default (the API allows 1 to 20).
     retrieval_top_k: int = Field(default=5, ge=1, le=20)
+    # Relevance threshold (cosine similarity). A question whose passages all
+    # score below it is refused without calling the LLM, and only passages at
+    # or above it are given to the Writer. Provisional value, to be calibrated
+    # on the demo documents; it depends on the embedding model.
+    retrieval_min_score: float = Field(default=0.5, ge=0.0, le=1.0)
 
     # Storage: SQLite database and uploaded files (relative to the working directory)
     data_dir: Path = Path("data")
