@@ -1,4 +1,4 @@
-"""Objects that FastAPI gives to the routes (database session, indexer, retriever)."""
+"""Objects that FastAPI gives to the routes (database session, indexer, retriever, LLM)."""
 
 from collections.abc import Iterator
 from typing import Annotated
@@ -6,6 +6,7 @@ from typing import Annotated
 from fastapi import Depends, Request
 from sqlalchemy.orm import Session
 
+from app.llm.base import LLMProvider
 from app.retrieval.indexing import DocumentIndexer
 from app.retrieval.retriever import Retriever
 
@@ -32,3 +33,12 @@ def get_retriever(indexer: Annotated[DocumentIndexer, Depends(get_indexer)]) -> 
     prefixes and index as indexing (and the same fake model in tests).
     """
     return Retriever(indexer.embedder, indexer.vector_store)
+
+
+def get_llm_provider(request: Request) -> LLMProvider:
+    """Return the text generation provider created when the server started.
+
+    Tests replace it with a fake model that returns scripted replies.
+    """
+    llm: LLMProvider = request.app.state.llm
+    return llm

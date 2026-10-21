@@ -3,16 +3,18 @@
 import hashlib
 import re
 from collections.abc import Callable, Iterator
+from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from app.api.dependencies import get_indexer
+from app.api.dependencies import get_indexer, get_llm_provider
 from app.core.config import get_settings
 from app.db.session import create_db_engine, create_session_factory, init_db, sqlite_url
 from app.ingestion.chunking import ChunkOptions
+from app.llm.base import ChatMessage, LLMError, LLMProvider
 from app.main import app
 from app.retrieval.embedder import Embedder
 from app.retrieval.embeddings import EmbeddingError, EmbeddingProvider
@@ -54,6 +56,48 @@ class UnavailableEmbeddingProvider(EmbeddingProvider):
         raise EmbeddingError("Embedding request failed: connection refused")
 
 
+@dataclass(frozen=True)
+class FakeLLMCall:
+    """What the code sent to the fake model in one call."""
+
+    messages: list[ChatMessage]
+    temperature: float
+    json_mode: bool
+
+
+class FakeLLMProvider(LLMProvider):
+    """A fake text generation model for tests (no Ollama, no network).
+
+    - replies: answers returned in order, one per call (add them in the test).
+    - calls: every call received, so a test can check the prompt, or check
+      that the model was not called at all.
+    - unavailable: set to True to simulate a model that is down.
+
+    A call with no reply left fails the test: an unexpected LLM call is a bug.
+    """
+
+    name = "fake"
+
+    def __init__(self) -> None:
+        self.replies: list[str] = []
+        self.calls: list[FakeLLMCall] = []
+        self.unavailable = False
+
+    def generate(
+        self,
+        messages: list[ChatMessage],
+        *,
+        temperature: float = 0.0,
+        json_mode: bool = False,
+    ) -> str:
+        self.calls.append(FakeLLMCall(list(messages), temperature, json_mode))
+        if self.unavailable:
+            raise LLMError("LLM request failed: connection refused")
+        if not self.replies:
+            raise AssertionError("FakeLLMProvider was called but has no reply left")
+        return self.replies.pop(0)
+
+
 @pytest.fixture
 def db_session(tmp_path: Path) -> Iterator[Session]:
     """A session on a fresh SQLite database, deleted after the test."""
@@ -93,6 +137,12 @@ def indexer(make_indexer: Callable[..., DocumentIndexer]) -> DocumentIndexer:
 
 
 @pytest.fixture
+def fake_llm() -> FakeLLMProvider:
+    """A fake LLM with no scripted reply yet (the test adds them)."""
+    return FakeLLMProvider()
+
+
+@pytest.fixture
 def data_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
     """Point DATA_DIR to a temporary folder for the duration of the test."""
     folder = tmp_path / "atlas-data"
@@ -103,12 +153,17 @@ def data_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
 
 
 @pytest.fixture
-def client(data_dir: Path, indexer: DocumentIndexer) -> Iterator[TestClient]:
+def client(
+    data_dir: Path, indexer: DocumentIndexer, fake_llm: FakeLLMProvider
+) -> Iterator[TestClient]:
     """An API client on a fresh database. The startup code runs normally,
-    but uploads are indexed with the fake embedding model (no Ollama call)."""
+    but uploads are indexed with the fake embedding model and answers come
+    from the fake LLM (no Ollama call)."""
     app.dependency_overrides[get_indexer] = lambda: indexer
+    app.dependency_overrides[get_llm_provider] = lambda: fake_llm
     try:
         with TestClient(app) as test_client:
             yield test_client
     finally:
         app.dependency_overrides.pop(get_indexer, None)
+        app.dependency_overrides.pop(get_llm_provider, None)

@@ -8,7 +8,7 @@ from fastapi import APIRouter, FastAPI
 from app.api.documents import router as documents_router
 from app.api.search import router as search_router
 from app.core.config import get_settings
-from app.core.providers import build_document_indexer
+from app.core.providers import build_document_indexer, build_llm_provider
 from app.db.session import create_db_engine, create_session_factory, init_db, sqlite_url
 
 APP_VERSION = "0.1.0"
@@ -16,15 +16,16 @@ APP_VERSION = "0.1.0"
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """Open the database and the vector store when the server starts."""
+    """Open the database, the vector store and the LLM client when the server starts."""
     settings = get_settings()
     engine = create_db_engine(sqlite_url(settings.data_dir))
     init_db(engine)
     app.state.engine = engine
     app.state.session_factory = create_session_factory(engine)
-    # No call to the embedding service here: the server starts even if
-    # Ollama is not running (uploads will then fail with a clear reason).
+    # No call to the embedding service or the LLM here: the server starts even
+    # if Ollama is not running (requests will then fail with a clear reason).
     app.state.indexer = build_document_indexer(settings)
+    app.state.llm = build_llm_provider(settings)
     yield
     engine.dispose()
 
