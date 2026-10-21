@@ -1,6 +1,16 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { ApiError, askQuestion, errorMessage, listDocuments, uploadDocument } from './client'
+import {
+  ApiError,
+  askInSession,
+  askQuestion,
+  createSession,
+  errorMessage,
+  getSession,
+  listDocuments,
+  listSessions,
+  uploadDocument,
+} from './client'
 
 function jsonResponse(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -115,5 +125,69 @@ describe('API calls', () => {
 
     expect(error).not.toBeInstanceOf(ApiError)
     expect((error as DOMException).name).toBe('AbortError')
+  })
+})
+
+describe('session calls', () => {
+  it('lists the sessions', async () => {
+    const fake = mockFetch(jsonResponse(200, [{ id: 'session-1', title: 'Notice period?' }]))
+
+    const sessions = await listSessions()
+
+    expect(sessions).toEqual([{ id: 'session-1', title: 'Notice period?' }])
+    expect(fake).toHaveBeenCalledWith('/api/sessions', { signal: undefined })
+  })
+
+  it('creates a session with an empty POST', async () => {
+    const fake = mockFetch(jsonResponse(201, { id: 'session-1', title: null }))
+
+    const session = await createSession()
+
+    expect(session.id).toBe('session-1')
+    const [path, init] = fake.mock.calls[0] as unknown as [string, RequestInit]
+    expect(path).toBe('/api/sessions')
+    expect(init.method).toBe('POST')
+    expect(init.body).toBeUndefined()
+  })
+
+  it('reads one session', async () => {
+    const fake = mockFetch(jsonResponse(200, { id: 'session-1', messages: [] }))
+
+    await getSession('session-1')
+
+    expect(fake).toHaveBeenCalledWith('/api/sessions/session-1', { signal: undefined })
+  })
+
+  it('reports an unknown session as an ApiError 404', async () => {
+    mockFetch(jsonResponse(404, { detail: 'Session not found.' }))
+
+    const error = await getSession('gone').catch((caught: unknown) => caught)
+
+    expect(error).toBeInstanceOf(ApiError)
+    expect((error as ApiError).status).toBe(404)
+  })
+
+  it('sends a question inside a session as JSON', async () => {
+    const fake = mockFetch(jsonResponse(200, { session: { id: 'session-1' } }))
+
+    await askInSession('session-1', { question: 'Notice period?', document_ids: ['doc-1'] })
+
+    const [path, init] = fake.mock.calls[0] as unknown as [string, RequestInit]
+    expect(path).toBe('/api/sessions/session-1/ask')
+    expect(init.method).toBe('POST')
+    expect(init.headers).toEqual({ 'Content-Type': 'application/json' })
+    expect(JSON.parse(init.body as string)).toEqual({
+      question: 'Notice period?',
+      document_ids: ['doc-1'],
+    })
+  })
+
+  it('escapes the session id in the URL', async () => {
+    const fake = mockFetch(jsonResponse(200, {}))
+
+    await getSession('a/b?c')
+
+    const [path] = fake.mock.calls[0] as unknown as [string]
+    expect(path).toBe('/api/sessions/a%2Fb%3Fc')
   })
 })

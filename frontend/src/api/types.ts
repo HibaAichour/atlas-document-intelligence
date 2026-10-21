@@ -53,3 +53,49 @@ export interface AskResponse {
   warnings: AnswerWarning[]
   best_score: number | null
 }
+
+export type MessageRole = 'user' | 'assistant'
+export type MessageMode = 'ask' | 'extract' // "extract" arrives at step 9
+
+/** A session as shown in the session list (SessionSummaryOut). */
+export interface SessionSummary {
+  id: string
+  title: string | null // null until the first question
+  created_at: string
+  updated_at: string
+  message_count: number
+}
+
+/** A saved question or answer (MessageOut). The answer fields are empty for a question. */
+export interface StoredMessage {
+  id: string
+  position: number // 0-based order within the session
+  role: MessageRole
+  mode: MessageMode
+  content: string // the question, or the answer text (refusal message if refused)
+  status: AnswerStatus | null
+  refusal_reason: RefusalReason | null
+  citations: Citation[]
+  invalid_citations: string[]
+  warnings: AnswerWarning[]
+  best_score: number | null
+  agent_trace: Record<string, unknown>[] // agents that ran, filled from step 9
+  created_at: string
+}
+
+/** A full session: its messages and its selected documents (SessionOut). */
+export interface SessionDetail {
+  id: string
+  title: string | null
+  created_at: string
+  updated_at: string
+  document_ids: string[]
+  messages: StoredMessage[]
+}
+
+/** What POST /api/sessions/{id}/ask returns (SessionAskResponse). */
+export interface SessionAskResponse {
+  session: SessionSummary
+  question: StoredMessage
+  answer: StoredMessage
+}

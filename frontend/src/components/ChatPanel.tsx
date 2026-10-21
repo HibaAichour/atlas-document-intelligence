@@ -143,14 +143,15 @@ function MessageView({ message, openSource, onOpenSource, t }: MessageViewProps)
 interface AnswerViewProps {
   answerId: number
   response: AskResponse
-  seconds: number
+  seconds: number | null // null for an answer restored from a saved session
   openSource: OpenSource | null
   onOpenSource: (source: OpenSource) => void
   t: Messages
 }
 
 function AnswerView({ answerId, response, seconds, openSource, onOpenSource, t }: AnswerViewProps) {
-  const timing = t.answeredIn(seconds)
+  // The response time is only known for an answer received in this tab.
+  const timing = seconds === null ? null : <> {t.answeredIn(seconds)}</>
 
   if (response.status === 'refused') {
     const reason =
@@ -161,7 +162,8 @@ function AnswerView({ answerId, response, seconds, openSource, onOpenSource, t }
       <div className="answer answer-refused">
         <p className="answer-title">{t.refusalTitle}</p>
         <p className="answer-note">
-          {reason} {timing}
+          {reason}
+          {timing}
         </p>
       </div>
     )
@@ -199,7 +201,8 @@ function AnswerView({ answerId, response, seconds, openSource, onOpenSource, t }
         <p className="answer-warning">{t.warningNoCitation}</p>
       )}
       <p className="answer-note">
-        {t.sourceCount(response.citations.length)} {timing}
+        {t.sourceCount(response.citations.length)}
+        {timing}
       </p>
     </div>
   )

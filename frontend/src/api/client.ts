@@ -2,7 +2,15 @@
 // URLs are relative (/api/...): the Vite proxy (development) or Nginx (Docker)
 // forwards them to FastAPI, so the same code works in every environment.
 
-import type { AskRequest, AskResponse, DocumentInfo, HealthInfo } from './types'
+import type {
+  AskRequest,
+  AskResponse,
+  DocumentInfo,
+  HealthInfo,
+  SessionAskResponse,
+  SessionDetail,
+  SessionSummary,
+} from './types'
 
 /** An API call that failed. The message is safe to show to the user. */
 export class ApiError extends Error {
@@ -72,6 +80,15 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return body as T
 }
 
+/** Options for a request that sends a JSON body. */
+function postJson(payload: unknown): RequestInit {
+  return {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  }
+}
+
 export function getHealth(signal?: AbortSignal): Promise<HealthInfo> {
   return request<HealthInfo>('/api/health', { signal })
 }
@@ -88,10 +105,33 @@ export function uploadDocument(file: File): Promise<DocumentInfo> {
   return request<DocumentInfo>('/api/documents', { method: 'POST', body: form })
 }
 
+/** Ask without saving anything (the chat uses askInSession instead). */
 export function askQuestion(payload: AskRequest): Promise<AskResponse> {
-  return request<AskResponse>('/api/ask', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  })
+  return request<AskResponse>('/api/ask', postJson(payload))
+}
+
+/** Every session, most recently used first. */
+export function listSessions(signal?: AbortSignal): Promise<SessionSummary[]> {
+  return request<SessionSummary[]>('/api/sessions', { signal })
+}
+
+/** Create an empty session (its title comes from its first question). */
+export function createSession(): Promise<SessionSummary> {
+  return request<SessionSummary>('/api/sessions', { method: 'POST' })
+}
+
+/** A session with its messages and documents. An unknown id gives an ApiError 404. */
+export function getSession(sessionId: string, signal?: AbortSignal): Promise<SessionDetail> {
+  return request<SessionDetail>(`/api/sessions/${encodeURIComponent(sessionId)}`, { signal })
+}
+
+/** Ask inside a session: the question and its answer are saved by the backend. */
+export function askInSession(
+  sessionId: string,
+  payload: AskRequest,
+): Promise<SessionAskResponse> {
+  return request<SessionAskResponse>(
+    `/api/sessions/${encodeURIComponent(sessionId)}/ask`,
+    postJson(payload),
+  )
 }
