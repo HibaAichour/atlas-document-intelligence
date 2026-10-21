@@ -61,6 +61,11 @@ class Settings(BaseSettings):
     # the embedding model changes.
     retrieval_min_score: float = Field(default=0.6, ge=0.0, le=1.0)
 
+    # Critic: besides its code checks (citations, numbers), it asks the model
+    # which sentences no passage supports. That costs about 3 to 5 s more per
+    # answer with qwen2.5:3b; set CRITIC_USE_LLM=false to keep the code checks only.
+    critic_use_llm: bool = True
+
     # Storage: SQLite database and uploaded files (relative to the working directory)
     data_dir: Path = Path("data")
 

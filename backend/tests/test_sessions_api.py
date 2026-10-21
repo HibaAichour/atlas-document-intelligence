@@ -123,7 +123,10 @@ def test_ask_in_session_saves_the_question_and_the_cited_answer(
     assert [(run["name"], run["status"]) for run in answer["agent_trace"]] == [
         ("retrieval", "ok"),
         ("writer", "ok"),
+        ("critic", "ok"),
     ]
+    assert answer["review"] == {"verdict": "ok", "issues": [], "model_checked": False}
+    assert body["question"]["review"] is None
 
 
 def test_a_saved_session_reads_back_exactly_like_the_live_answer(
@@ -164,6 +167,35 @@ def test_ask_in_session_gives_the_same_answer_as_api_ask(
     assert saved["best_score"] == direct["best_score"]
 
 
+def test_the_critics_review_is_saved_and_read_back(client: TestClient, fake_llm) -> None:
+    """With the model check on, the issues it finds survive a reload."""
+    settings = get_settings().model_copy(
+        update={"retrieval_min_score": 0.0, "critic_use_llm": True}
+    )
+    app.dependency_overrides[get_settings] = lambda: settings
+    try:
+        upload(client)
+        session_id = new_session(client)
+        fake_llm.replies.extend(["The notice period is 45 days [S1].", '{"unsupported": [1]}'])
+
+        live = client.post(
+            f"/api/sessions/{session_id}/ask", json={"question": QUESTION, "top_k": 1}
+        ).json()["answer"]
+        restored = client.get(f"/api/sessions/{session_id}").json()["messages"][1]
+    finally:
+        app.dependency_overrides.pop(get_settings, None)
+
+    assert restored["review"] == live["review"]
+    review = restored["review"]
+    assert review["verdict"] == "issues"
+    assert review["model_checked"] is True
+    assert [(issue["code"], issue["origin"]) for issue in review["issues"]] == [
+        ("unsupported_number", "code"),
+        ("unsupported_claim", "model"),
+    ]
+    assert review["issues"][0]["sentence"] == "The notice period is 45 days."
+
+
 def test_a_refusal_is_saved_with_its_reason(
     client: TestClient, fake_llm, set_min_score: Callable[[float], None]
 ) -> None:
@@ -178,6 +210,7 @@ def test_a_refusal_is_saved_with_its_reason(
     assert answer["refusal_reason"] == "no_relevant_passages"
     assert answer["content"] == REFUSAL_MESSAGE
     assert answer["citations"] == []
+    assert answer["review"] is None
     assert fake_llm.calls == []
 
 

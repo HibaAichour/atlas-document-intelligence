@@ -6,6 +6,7 @@ from typing import Annotated
 from fastapi import Depends, Request
 from sqlalchemy.orm import Session
 
+from app.agents.critic import Critic
 from app.agents.orchestrator import Orchestrator
 from app.agents.writer import Writer
 from app.core.config import Settings, get_settings
@@ -52,9 +53,14 @@ def get_orchestrator(
     llm: Annotated[LLMProvider, Depends(get_llm_provider)],
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> Orchestrator:
-    """Return the Orchestrator with its agents, the retriever and the threshold.
+    """Return the Orchestrator with its agents, the retriever and the settings.
 
     Built for each request from objects created at startup, so it is cheap,
     and tests get the fake embedding model and the fake LLM automatically.
     """
-    return Orchestrator(retriever, Writer(llm), min_score=settings.retrieval_min_score)
+    return Orchestrator(
+        retriever,
+        Writer(llm),
+        Critic(llm, use_model=settings.critic_use_llm),
+        min_score=settings.retrieval_min_score,
+    )

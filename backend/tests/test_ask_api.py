@@ -79,7 +79,10 @@ def test_ask_returns_an_answer_with_checked_sources(
     assert [(run["name"], run["kind"], run["status"]) for run in body["agent_trace"]] == [
         ("retrieval", "tool", "ok"),
         ("writer", "agent", "ok"),
+        ("critic", "agent", "ok"),
     ]
+    # The tests run the Critic's code checks only (CRITIC_USE_LLM=false in conftest).
+    assert body["review"] == {"verdict": "ok", "issues": [], "model_checked": False}
     assert all(run["duration_ms"] >= 0 for run in body["agent_trace"])
     # The model received the question and the passage, but no file name.
     prompt = fake_llm.calls[0].messages[1].content
@@ -106,7 +109,9 @@ def test_ask_refuses_without_calling_the_model_below_the_threshold(
     assert [(run["name"], run["status"]) for run in body["agent_trace"]] == [
         ("retrieval", "ok"),
         ("writer", "skipped"),
+        ("critic", "skipped"),
     ]
+    assert body["review"] is None
 
 
 def test_ask_with_no_document_refuses_without_calling_the_model(

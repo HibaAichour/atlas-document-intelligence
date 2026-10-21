@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.agents.orchestrator import Orchestrator
 from app.api.dependencies import get_db, get_orchestrator
-from app.api.schemas import AgentRunOut, AskRequest, AskResponse, CitationOut
+from app.api.schemas import AgentRunOut, AskRequest, AskResponse, CitationOut, ReviewOut
 from app.core.config import Settings, get_settings
 from app.db.repositories import DocumentRepository
 from app.llm.base import LLMError
@@ -67,5 +67,6 @@ def ask(
         invalid_citations=result.invalid_citations,
         warnings=result.warnings,
         best_score=result.best_score,
+        review=ReviewOut.from_review(result.review),
         agent_trace=[AgentRunOut.from_run(run) for run in result.trace],
     )

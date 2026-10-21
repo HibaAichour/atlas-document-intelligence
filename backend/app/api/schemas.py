@@ -5,6 +5,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
+from app.agents.critic import IssueCode, IssueOrigin, Review, Verdict
 from app.agents.trace import AgentRun, StepKind, StepStatus
 from app.db.models import DocumentStatus, Message, MessageMode, MessageRole
 from app.db.repositories import SessionSummary
@@ -129,6 +130,27 @@ class AgentRunOut(BaseModel):
         return cls(**run.to_dict())
 
 
+class IssueOut(BaseModel):
+    """One problem the Critic found in an answer."""
+
+    code: IssueCode  # e.g. "unsupported_number"; the interface writes its own text
+    origin: IssueOrigin  # "code" (a rule) or "model" (the LLM's judgement)
+    message: str  # short technical explanation
+    sentence: str | None  # the sentence concerned, without its citations
+
+
+class ReviewOut(BaseModel):
+    """The Critic's verdict on an answer. It reports problems, it never changes the answer."""
+
+    verdict: Verdict  # "ok" or "issues"
+    issues: list[IssueOut]
+    model_checked: bool  # False when only the code checks ran
+
+    @classmethod
+    def from_review(cls, review: Review | None) -> "ReviewOut | None":
+        return None if review is None else cls.model_validate(review.to_dict())
+
+
 class AskResponse(BaseModel):
     """An answer with its checked sources, or a refusal."""
 
@@ -140,6 +162,7 @@ class AskResponse(BaseModel):
     invalid_citations: list[str]  # identifiers invented by the model, removed
     warnings: list[Literal["invalid_citations_removed", "no_valid_citation"]]
     best_score: float | None  # highest retrieval score, None if nothing was found
+    review: ReviewOut | None  # the Critic's verdict; None for a refusal
     agent_trace: list[AgentRunOut]  # the steps run, in order (skipped ones included)
 
 
@@ -183,6 +206,7 @@ class MessageOut(BaseModel):
     invalid_citations: list[str]
     warnings: list[AnswerWarning]
     best_score: float | None
+    review: ReviewOut | None  # the Critic's verdict (None for questions, refusals, old answers)
     agent_trace: list[AgentRunOut]  # the steps run (empty for questions and old answers)
     created_at: datetime
 
@@ -203,6 +227,7 @@ class MessageOut(BaseModel):
                 "invalid_citations": message.invalid_citations,
                 "warnings": message.warnings,
                 "best_score": message.best_score,
+                "review": message.review,
                 "agent_trace": message.agent_trace,
                 "created_at": message.created_at,
             }

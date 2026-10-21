@@ -57,6 +57,7 @@ def to_reply(result: AnswerResult) -> AssistantReply:
         warnings=list(result.warnings),
         best_score=result.best_score,
         agent_trace=[run.to_dict() for run in result.trace],
+        review=None if result.review is None else result.review.to_dict(),
     )
 
 

@@ -170,6 +170,7 @@ class AssistantReply:
     warnings: list[str] = field(default_factory=list)
     best_score: float | None = None
     agent_trace: list[dict[str, Any]] = field(default_factory=list)
+    review: dict[str, Any] | None = None  # the Critic's verdict (None for a refusal)
 
 
 @dataclass(frozen=True)
@@ -262,6 +263,7 @@ class SessionRepository:
             invalid_citations=list(reply.invalid_citations),
             warnings=list(reply.warnings),
             best_score=reply.best_score,
+            review=reply.review,
         )
         chat_session.messages.extend([question_message, answer_message])
         self._replace_documents(chat_session, document_ids)

@@ -8,6 +8,7 @@ types and the refusal message, shared by the Orchestrator and the API.
 from dataclasses import dataclass, field
 from typing import Literal
 
+from app.agents.critic import Review
 from app.agents.trace import AgentRun
 from app.rag.citations import Citation
 
@@ -30,6 +31,7 @@ class AnswerResult:
     invalid_citations: list[str] = field(default_factory=list)  # e.g. ["S9"]
     warnings: list[AnswerWarning] = field(default_factory=list)
     best_score: float | None = None  # highest retrieval score, None if nothing found
+    review: Review | None = None  # the Critic's verdict; None for a refusal
     trace: list[AgentRun] = field(default_factory=list)  # steps run by the Orchestrator
 
 

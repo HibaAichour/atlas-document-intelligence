@@ -147,6 +147,9 @@ def data_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
     """Point DATA_DIR to a temporary folder for the duration of the test."""
     folder = tmp_path / "atlas-data"
     monkeypatch.setenv("DATA_DIR", str(folder))
+    # API tests script one reply per Writer call; the Critic's model check is
+    # tested on its own (test_critic.py, test_orchestrator.py).
+    monkeypatch.setenv("CRITIC_USE_LLM", "false")
     get_settings.cache_clear()
     yield folder
     get_settings.cache_clear()
