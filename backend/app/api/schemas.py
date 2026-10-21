@@ -1,11 +1,13 @@
 """Shapes of the JSON received and returned by the API."""
 
 from datetime import datetime
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
-from app.db.models import DocumentStatus
+from app.db.models import DocumentStatus, Message, MessageMode, MessageRole
+from app.db.repositories import SessionSummary
+from app.rag.answering import AnswerStatus, AnswerWarning, RefusalReason
 from app.rag.citations import Citation
 
 MAX_QUERY_LENGTH = 1000
@@ -123,3 +125,88 @@ class AskResponse(BaseModel):
     invalid_citations: list[str]  # identifiers invented by the model, removed
     warnings: list[Literal["invalid_citations_removed", "no_valid_citation"]]
     best_score: float | None  # highest retrieval score, None if nothing was found
+
+
+class SessionSummaryOut(BaseModel):
+    """A session as shown in the session list."""
+
+    id: str
+    title: str | None  # None until the first question
+    created_at: datetime
+    updated_at: datetime
+    message_count: int
+
+    @classmethod
+    def from_summary(cls, summary: SessionSummary) -> "SessionSummaryOut":
+        chat_session = summary.session
+        return cls(
+            id=chat_session.id,
+            title=chat_session.title,
+            created_at=chat_session.created_at,
+            updated_at=chat_session.updated_at,
+            message_count=summary.message_count,
+        )
+
+
+class MessageOut(BaseModel):
+    """A saved question or answer.
+
+    An answer has the same fields as AskResponse, so the frontend shows a
+    restored answer exactly like a live one. For a question, the answer
+    fields are empty (status None, no citations).
+    """
+
+    id: str
+    position: int
+    role: MessageRole
+    mode: MessageMode
+    content: str  # the question, or the answer text (refusal message if refused)
+    status: AnswerStatus | None
+    refusal_reason: RefusalReason | None
+    citations: list[CitationOut]
+    invalid_citations: list[str]
+    warnings: list[AnswerWarning]
+    best_score: float | None
+    agent_trace: list[dict[str, Any]]  # agents that ran, filled from step 9
+    created_at: datetime
+
+    @classmethod
+    def from_message(cls, message: Message) -> "MessageOut":
+        # model_validate checks again the values read from the database
+        # (plain text and JSON), so a malformed row fails loudly.
+        return cls.model_validate(
+            {
+                "id": message.id,
+                "position": message.position,
+                "role": message.role,
+                "mode": message.mode,
+                "content": message.content,
+                "status": message.status,
+                "refusal_reason": message.refusal_reason,
+                "citations": message.sources,
+                "invalid_citations": message.invalid_citations,
+                "warnings": message.warnings,
+                "best_score": message.best_score,
+                "agent_trace": message.agent_trace,
+                "created_at": message.created_at,
+            }
+        )
+
+
+class SessionOut(BaseModel):
+    """A full session: its messages and the documents selected in it."""
+
+    id: str
+    title: str | None
+    created_at: datetime
+    updated_at: datetime
+    document_ids: list[str]
+    messages: list[MessageOut]
+
+
+class SessionAskResponse(BaseModel):
+    """The question and answer just saved, and the updated session summary."""
+
+    session: SessionSummaryOut
+    question: MessageOut
+    answer: MessageOut

@@ -1,5 +1,6 @@
 """Route to ask a question about the indexed documents (RAG with citations)."""
 
+from collections.abc import Sequence
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -10,7 +11,7 @@ from app.api.schemas import AskRequest, AskResponse, CitationOut
 from app.core.config import Settings, get_settings
 from app.db.repositories import DocumentRepository
 from app.llm.base import LLMError
-from app.rag.answering import QuestionAnswerer
+from app.rag.answering import AnswerResult, QuestionAnswerer
 from app.retrieval.retriever import RetrievalError
 
 router = APIRouter(prefix="/ask", tags=["ask"])
@@ -18,6 +19,28 @@ router = APIRouter(prefix="/ask", tags=["ask"])
 DbSession = Annotated[Session, Depends(get_db)]
 AppSettings = Annotated[Settings, Depends(get_settings)]
 AppAnswerer = Annotated[QuestionAnswerer, Depends(get_question_answerer)]
+
+
+def answer_or_503(
+    answerer: QuestionAnswerer,
+    db: Session,
+    question: str,
+    top_k: int,
+    document_ids: Sequence[str] | None,
+) -> AnswerResult:
+    """Run the RAG service and turn an unreachable service into an error 503.
+
+    Shared by POST /api/ask and POST /api/sessions/{id}/ask, so both routes
+    refuse and fail in exactly the same way.
+    """
+    try:
+        return answerer.answer(DocumentRepository(db), question, top_k, document_ids)
+    except RetrievalError as error:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(error)) from error
+    except LLMError as error:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE, f"Answer generation failed: {error}"
+        ) from error
 
 
 # Plain "def": the embedding and the LLM calls block, so it runs in a thread pool.
@@ -29,18 +52,10 @@ def ask(
 
     A refusal is a normal answer (status 200, status "refused"). An error 503
     means the embedding service or the language model could not be reached.
+    Nothing is saved: use POST /api/sessions/{id}/ask to keep the conversation.
     """
     top_k = request.top_k or settings.retrieval_top_k
-    try:
-        result = answerer.answer(
-            DocumentRepository(db), request.question, top_k, request.document_ids
-        )
-    except RetrievalError as error:
-        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(error)) from error
-    except LLMError as error:
-        raise HTTPException(
-            status.HTTP_503_SERVICE_UNAVAILABLE, f"Answer generation failed: {error}"
-        ) from error
+    result = answer_or_503(answerer, db, request.question, top_k, request.document_ids)
 
     return AskResponse(
         question=result.question,
