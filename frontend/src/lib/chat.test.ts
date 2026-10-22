@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest'
 
-import type { AskResponse, Citation, StoredMessage } from '../api/types'
-import { chatReducer, isWaiting, nextMessageId, restoreMessages, type ChatMessage } from './chat'
+import type { AgentRun, AskResponse, Citation, Extraction, StoredMessage } from '../api/types'
+import {
+  chatReducer,
+  isWaiting,
+  nextMessageId,
+  restoreMessages,
+  type ChatMessage,
+  type ExtractResponse,
+} from './chat'
 
 const RESPONSE: AskResponse = {
   question: 'What is the notice period?',
@@ -12,6 +19,8 @@ const RESPONSE: AskResponse = {
   invalid_citations: [],
   warnings: [],
   best_score: 0.77,
+  review: null,
+  agent_trace: [],
 }
 
 const CITATION: Citation = {
@@ -24,6 +33,37 @@ const CITATION: Citation = {
   position: 0,
   text: 'Either party may terminate with sixty (60) days written notice.',
   score: 0.77,
+}
+
+const TRACE: AgentRun[] = [
+  { name: 'analyst', kind: 'agent', status: 'ok', duration_ms: 3306, summary: 'type invoice' },
+  { name: 'extractor', kind: 'agent', status: 'ok', duration_ms: 4864, summary: '7 of 7' },
+  { name: 'critic', kind: 'agent', status: 'ok', duration_ms: 4, summary: 'no issue' },
+]
+
+const EXTRACTION: Extraction = {
+  document_id: 'doc-2',
+  filename: 'invoice.pdf',
+  document_type: 'invoice',
+  fields: [
+    {
+      name: 'invoice_number',
+      label: 'Invoice number',
+      value: 'HDS-INV-2026-0042',
+      page: 1,
+      source: { ...CITATION, label: 'invoice_number', display: '[invoice.pdf, p. 1]' },
+    },
+  ],
+}
+
+const EXTRACT_RESPONSE: ExtractResponse = {
+  request: 'Extract the key fields of invoice.pdf',
+  status: 'answered',
+  message: 'Extracted 1 of 1 fields from invoice.pdf (invoice).',
+  refusal_reason: null,
+  extraction: EXTRACTION,
+  review: { verdict: 'ok', issues: [], model_checked: false },
+  agent_trace: TRACE,
 }
 
 /** A saved message as GET /api/sessions/{id} returns it. */
@@ -40,7 +80,9 @@ function stored(position: number, fields: Partial<StoredMessage>): StoredMessage
     invalid_citations: [],
     warnings: [],
     best_score: null,
+    review: null,
     agent_trace: [],
+    extraction: null,
     created_at: '2026-10-21T10:00:00Z',
     ...fields,
   }
@@ -52,6 +94,7 @@ function asked(): ChatMessage[] {
     questionId: 1,
     answerId: 2,
     question: 'What is the notice period?',
+    mode: 'ask',
   })
 }
 
@@ -61,9 +104,40 @@ describe('chatReducer', () => {
 
     expect(messages).toEqual([
       { id: 1, role: 'user', text: 'What is the notice period?' },
-      { id: 2, role: 'assistant', status: 'pending' },
+      { id: 2, role: 'assistant', status: 'pending', mode: 'ask' },
     ])
     expect(isWaiting(messages)).toBe(true)
+  })
+
+  it('remembers that a pending answer is an extraction', () => {
+    const messages = chatReducer([], {
+      type: 'asked',
+      questionId: 1,
+      answerId: 2,
+      question: 'Extract the key fields of invoice.pdf',
+      mode: 'extract',
+    })
+
+    expect(messages[1]).toEqual({ id: 2, role: 'assistant', status: 'pending', mode: 'extract' })
+    expect(isWaiting(messages)).toBe(true)
+  })
+
+  it('replaces the pending answer with the extracted fields', () => {
+    const messages = chatReducer(asked(), {
+      type: 'extracted',
+      answerId: 2,
+      response: EXTRACT_RESPONSE,
+      seconds: 8.2,
+    })
+
+    expect(messages[1]).toEqual({
+      id: 2,
+      role: 'assistant',
+      status: 'extracted',
+      response: EXTRACT_RESPONSE,
+      seconds: 8.2,
+    })
+    expect(isWaiting(messages)).toBe(false)
   })
 
   it('replaces the pending answer with the response', () => {
@@ -103,6 +177,7 @@ describe('chatReducer', () => {
       questionId: 3,
       answerId: 4,
       question: 'Who signed it?',
+      mode: 'ask',
     })
 
     expect(second).toHaveLength(4)
@@ -126,7 +201,7 @@ describe('nextMessageId', () => {
   it('continues after the largest id, even when ids are not in order', () => {
     const messages: ChatMessage[] = [
       { id: 7, role: 'user', text: 'a' },
-      { id: 3, role: 'assistant', status: 'pending' },
+      { id: 3, role: 'assistant', status: 'pending', mode: 'ask' },
     ]
 
     expect(nextMessageId(messages)).toBe(8)
@@ -199,6 +274,77 @@ describe('restoreMessages', () => {
     ])
 
     expect(restored).toEqual([{ id: 1, role: 'user', text: 'Question?' }])
+  })
+
+  it('keeps the review and the agents of a saved answer', () => {
+    const review = { verdict: 'ok' as const, issues: [], model_checked: true }
+    const restored = restoreMessages([
+      stored(0, { role: 'user', content: 'Question?' }),
+      stored(1, {
+        role: 'assistant',
+        content: 'Answer.',
+        status: 'answered',
+        review,
+        agent_trace: TRACE,
+      }),
+    ])
+
+    const answer = restored[1]
+    expect(answer.role === 'assistant' && answer.status === 'done').toBe(true)
+    if (answer.role === 'assistant' && answer.status === 'done') {
+      expect(answer.response.review).toEqual(review)
+      expect(answer.response.agent_trace).toEqual(TRACE)
+    }
+  })
+
+  it('turns a saved extraction into the same response as a live one', () => {
+    const restored = restoreMessages([
+      stored(0, { role: 'user', mode: 'extract', content: EXTRACT_RESPONSE.request }),
+      stored(1, {
+        role: 'assistant',
+        mode: 'extract',
+        content: EXTRACT_RESPONSE.message,
+        status: 'answered',
+        extraction: EXTRACTION,
+        review: EXTRACT_RESPONSE.review,
+        agent_trace: TRACE,
+      }),
+    ])
+
+    expect(restored).toEqual([
+      { id: 1, role: 'user', text: EXTRACT_RESPONSE.request },
+      { id: 2, role: 'assistant', status: 'extracted', response: EXTRACT_RESPONSE, seconds: null },
+    ])
+  })
+
+  it('restores the refusal of an unsupported document', () => {
+    const restored = restoreMessages([
+      stored(0, { role: 'user', mode: 'extract', content: 'Extract the key fields of notes.pdf' }),
+      stored(1, {
+        role: 'assistant',
+        mode: 'extract',
+        content: 'This document is neither an invoice nor a contract.',
+        status: 'refused',
+        refusal_reason: 'unsupported_document',
+      }),
+    ])
+
+    const refusal = restored[1]
+    expect(refusal.role === 'assistant' && refusal.status === 'extracted').toBe(true)
+    if (refusal.role === 'assistant' && refusal.status === 'extracted') {
+      expect(refusal.response.status).toBe('refused')
+      expect(refusal.response.refusal_reason).toBe('unsupported_document')
+      expect(refusal.response.extraction).toBeNull()
+    }
+  })
+
+  it('skips a saved extraction that lost its fields', () => {
+    const restored = restoreMessages([
+      stored(0, { role: 'user', mode: 'extract', content: 'Extract' }),
+      stored(1, { role: 'assistant', mode: 'extract', content: 'x', status: 'answered' }),
+    ])
+
+    expect(restored).toEqual([{ id: 1, role: 'user', text: 'Extract' }])
   })
 
   it('gives an empty conversation for a new session', () => {

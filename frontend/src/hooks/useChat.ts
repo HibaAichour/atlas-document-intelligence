@@ -1,11 +1,19 @@
-// State of the conversation: the messages, asking a new question inside the
-// current session, and showing the messages of a session that was opened.
+// State of the conversation: the messages, asking a question or extracting the
+// fields of a document inside the current session, and showing the messages of
+// a session that was opened.
 
 import { useReducer, useRef } from 'react'
 
-import { askInSession } from '../api/client'
-import type { SessionSummary } from '../api/types'
-import { chatReducer, isWaiting, nextMessageId, toAskResponse, type ChatMessage } from '../lib/chat'
+import { askInSession, extractInSession } from '../api/client'
+import type { DocumentInfo, SessionSummary } from '../api/types'
+import {
+  chatReducer,
+  isWaiting,
+  nextMessageId,
+  toAskResponse,
+  toExtractResponse,
+  type ChatMessage,
+} from '../lib/chat'
 import { errorText } from '../lib/errors'
 import { useMessages } from '../lib/i18n'
 
@@ -26,7 +34,7 @@ export function useChat({ selectedIds, ensureSession, onSaved }: ChatOptions) {
   async function ask(question: string): Promise<void> {
     const questionId = nextId.current++
     const answerId = nextId.current++
-    dispatch({ type: 'asked', questionId, answerId, question })
+    dispatch({ type: 'asked', questionId, answerId, question, mode: 'ask' })
 
     const start = performance.now()
     try {
@@ -47,6 +55,30 @@ export function useChat({ selectedIds, ensureSession, onSaved }: ChatOptions) {
     }
   }
 
+  /** Extract the key fields of one document; the result is saved in the session. */
+  async function extract(document: DocumentInfo): Promise<void> {
+    const requestId = nextId.current++
+    const answerId = nextId.current++
+    // The backend saves the same text; it is written here to show it at once.
+    const request = t.extractRequest(document.filename)
+    dispatch({ type: 'asked', questionId: requestId, answerId, question: request, mode: 'extract' })
+
+    const start = performance.now()
+    try {
+      const sessionId = await ensureSession()
+      const saved = await extractInSession(sessionId, { document_id: document.id })
+      const seconds = (performance.now() - start) / 1000
+      const response = toExtractResponse(saved.question.content, saved.answer)
+      if (response === null) {
+        throw new Error(t.unexpectedError)
+      }
+      dispatch({ type: 'extracted', answerId, response, seconds })
+      onSaved(saved.session)
+    } catch (error) {
+      dispatch({ type: 'failed', answerId, error: errorText(error, t.unexpectedError) })
+    }
+  }
+
   /** Replace the conversation with the messages of another session (or none). */
   function load(loaded: ChatMessage[]): void {
     dispatch({ type: 'loaded', messages: loaded })
@@ -54,5 +86,5 @@ export function useChat({ selectedIds, ensureSession, onSaved }: ChatOptions) {
     nextId.current = nextMessageId(loaded)
   }
 
-  return { messages, isWaiting: isWaiting(messages), ask, load }
+  return { messages, isWaiting: isWaiting(messages), ask, extract, load }
 }

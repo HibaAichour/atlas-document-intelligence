@@ -49,13 +49,18 @@ export function SourcePanel({ source, onClose }: SourcePanelProps) {
         </button>
       </div>
 
-      <p className="note">{t.sourceExplanation}</p>
+      <p className="note">
+        {source.kind === 'field'
+          ? t.fieldSourceExplanation(source.label, source.value)
+          : t.sourceExplanation}
+      </p>
 
       {source.citations.map((citation, index) => (
         <figure key={citation.chunk_id} className="passage">
           {count > 1 && <figcaption className="note">{t.passageOf(index + 1, count)}</figcaption>}
           <blockquote className="passage-text">{readableText(citation.text)}</blockquote>
-          <p className="note">{t.similarity(citation.score)}</p>
+          {/* A similarity score only means something for a question. */}
+          {source.kind === 'answer' && <p className="note">{t.similarity(citation.score)}</p>}
         </figure>
       ))}
     </aside>

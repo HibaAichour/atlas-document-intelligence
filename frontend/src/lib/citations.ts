@@ -48,9 +48,28 @@ export function citationLabel(display: string): string {
   return display.replace(/^\[/, '').replace(/\]$/, '')
 }
 
-/** The source opened in the side panel: one marker of one answer. */
-export interface OpenSource {
-  answerId: number
-  display: string
-  citations: Citation[]
+/** The source opened in the side panel: one marker of one answer, or the
+ * passage one extracted value was read from. */
+export type OpenSource =
+  | { kind: 'answer'; answerId: number; display: string; citations: Citation[] }
+  | {
+      kind: 'field'
+      answerId: number
+      field: string // the field's name, e.g. "total_amount"
+      label: string // the field's label, e.g. "Total due"
+      value: string
+      citations: Citation[] // the one passage holding the value
+    }
+
+/** True when this marker (or this field) of this answer is the one opened. */
+export function isOpenAnswerSource(
+  open: OpenSource | null,
+  answerId: number,
+  display: string,
+): boolean {
+  return open?.kind === 'answer' && open.answerId === answerId && open.display === display
+}
+
+export function isOpenFieldSource(open: OpenSource | null, answerId: number, field: string): boolean {
+  return open?.kind === 'field' && open.answerId === answerId && open.field === field
 }

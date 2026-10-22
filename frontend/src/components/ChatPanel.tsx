@@ -1,9 +1,13 @@
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
 
-import type { AskResponse } from '../api/types'
+import type { AskResponse, DocumentInfo, MessageMode } from '../api/types'
 import type { ChatMessage } from '../lib/chat'
-import { citationLabel, splitAnswer, type OpenSource } from '../lib/citations'
+import { citationLabel, isOpenAnswerSource, splitAnswer, type OpenSource } from '../lib/citations'
+import { chosenDocumentId, extractableDocuments } from '../lib/extraction'
 import { useMessages, type Messages } from '../lib/i18n'
+import { AgentTrace } from './AgentTrace'
+import { CriticReview } from './CriticReview'
+import { ExtractionView } from './ExtractionView'
 
 // Same limit as the backend (MAX_QUERY_LENGTH), so a question is never refused.
 const MAX_QUESTION_LENGTH = 1000
@@ -13,6 +17,10 @@ interface ChatPanelProps {
   isWaiting: boolean
   canAsk: boolean // false when no usable document is selected
   onAsk: (question: string) => void
+  documents: DocumentInfo[]
+  selectedIds: ReadonlySet<string> // the checked documents: the first one is offered for extraction
+  canExtract: boolean // false while a saved session is being restored
+  onExtract: (document: DocumentInfo) => void
   openSource: OpenSource | null
   onOpenSource: (source: OpenSource) => void
 }
@@ -22,14 +30,29 @@ export function ChatPanel({
   isWaiting,
   canAsk,
   onAsk,
+  documents,
+  selectedIds,
+  canExtract,
+  onExtract,
   openSource,
   onOpenSource,
 }: ChatPanelProps) {
   const t = useMessages()
+  const [mode, setMode] = useState<MessageMode>('ask')
   const [draft, setDraft] = useState('')
+  // The document the user picked in the list (null: none picked yet).
+  const [picked, setPicked] = useState<string | null>(null)
   const endRef = useRef<HTMLDivElement>(null)
+
   const question = draft.trim()
-  const canSend = canAsk && !isWaiting && question !== ''
+  const extractable = extractableDocuments(documents)
+  // Computed, not stored: follows uploads, deletions and the checked documents.
+  const documentId = chosenDocumentId(documents, selectedIds, picked)
+  const chosen = extractable.find((document) => document.id === documentId)
+  const canSend =
+    mode === 'ask'
+      ? canAsk && !isWaiting && question !== ''
+      : canExtract && !isWaiting && chosen !== undefined
 
   // Keep the latest message in view.
   useEffect(() => {
@@ -38,8 +61,12 @@ export function ChatPanel({
 
   function send() {
     if (!canSend) return
-    onAsk(question)
-    setDraft('')
+    if (mode === 'ask') {
+      onAsk(question)
+      setDraft('')
+    } else if (chosen !== undefined) {
+      onExtract(chosen)
+    }
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -78,20 +105,54 @@ export function ChatPanel({
       </div>
 
       <form className="composer" onSubmit={handleSubmit}>
-        <textarea
-          className="composer-input"
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder={canAsk ? t.questionPlaceholder : t.selectDocumentFirst}
-          aria-label={t.questionLabel}
-          maxLength={MAX_QUESTION_LENGTH}
-          rows={2}
-          disabled={!canAsk}
-        />
-        <button type="submit" className="button button-primary composer-send" disabled={!canSend}>
-          {t.askButton}
-        </button>
+        <div className="mode-switch" role="group" aria-label={t.modeLabel}>
+          {(['ask', 'extract'] as const).map((option) => (
+            <button
+              key={option}
+              type="button"
+              className={option === mode ? 'mode-option mode-option-on' : 'mode-option'}
+              aria-pressed={option === mode}
+              onClick={() => setMode(option)}
+            >
+              {option === 'ask' ? t.modeAsk : t.modeExtract}
+            </button>
+          ))}
+        </div>
+
+        <div className="composer-row">
+          {mode === 'ask' ? (
+            <textarea
+              className="composer-input"
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={canAsk ? t.questionPlaceholder : t.selectDocumentFirst}
+              aria-label={t.questionLabel}
+              maxLength={MAX_QUESTION_LENGTH}
+              rows={2}
+              disabled={!canAsk}
+            />
+          ) : (
+            <select
+              className="composer-input composer-select"
+              value={documentId ?? ''}
+              onChange={(event) => setPicked(event.target.value)}
+              aria-label={t.extractDocumentLabel}
+              disabled={extractable.length === 0}
+            >
+              {extractable.length === 0 && <option value="">{t.noDocumentToExtract}</option>}
+              {extractable.map((document) => (
+                <option key={document.id} value={document.id}>
+                  {document.filename}
+                </option>
+              ))}
+            </select>
+          )}
+          <button type="submit" className="button button-primary composer-send" disabled={!canSend}>
+            {mode === 'ask' ? t.askButton : t.extractButton}
+          </button>
+        </div>
+        {mode === 'extract' && <p className="composer-hint">{t.extractHint}</p>}
       </form>
     </main>
   )
@@ -116,7 +177,7 @@ function MessageView({ message, openSource, onOpenSource, t }: MessageViewProps)
           <span />
           <span />
         </span>
-        <p className="answer-note">{t.answerPending}</p>
+        <p className="answer-note">{message.mode === 'extract' ? t.extractPending : t.answerPending}</p>
       </div>
     )
   }
@@ -126,6 +187,18 @@ function MessageView({ message, openSource, onOpenSource, t }: MessageViewProps)
         <p className="answer-title">{t.answerFailed}</p>
         <p className="answer-note">{message.error}</p>
       </div>
+    )
+  }
+  if (message.status === 'extracted') {
+    return (
+      <ExtractionView
+        answerId={message.id}
+        response={message.response}
+        seconds={message.seconds}
+        openSource={openSource}
+        onOpenSource={onOpenSource}
+        t={t}
+      />
     )
   }
   return (
@@ -165,6 +238,7 @@ function AnswerView({ answerId, response, seconds, openSource, onOpenSource, t }
           {reason}
           {timing}
         </p>
+        <AgentTrace trace={response.agent_trace} t={t} />
       </div>
     )
   }
@@ -177,7 +251,7 @@ function AnswerView({ answerId, response, seconds, openSource, onOpenSource, t }
             return <span key={index}>{segment.text}</span>
           }
           const label = citationLabel(segment.display)
-          const isOpen = openSource?.answerId === answerId && openSource.display === segment.display
+          const isOpen = isOpenAnswerSource(openSource, answerId, segment.display)
           return (
             <button
               key={index}
@@ -186,7 +260,12 @@ function AnswerView({ answerId, response, seconds, openSource, onOpenSource, t }
               aria-pressed={isOpen}
               aria-label={t.openSource(label)}
               onClick={() =>
-                onOpenSource({ answerId, display: segment.display, citations: segment.citations })
+                onOpenSource({
+                  kind: 'answer',
+                  answerId,
+                  display: segment.display,
+                  citations: segment.citations,
+                })
               }
             >
               {label}
@@ -204,6 +283,8 @@ function AnswerView({ answerId, response, seconds, openSource, onOpenSource, t }
         {t.sourceCount(response.citations.length)}
         {timing}
       </p>
+      <CriticReview review={response.review} t={t} />
+      <AgentTrace trace={response.agent_trace} t={t} />
     </div>
   )
 }

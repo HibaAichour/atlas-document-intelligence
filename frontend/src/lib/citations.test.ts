@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest'
 
 import type { Citation } from '../api/types'
-import { citationLabel, splitAnswer } from './citations'
+import {
+  citationLabel,
+  isOpenAnswerSource,
+  isOpenFieldSource,
+  splitAnswer,
+  type OpenSource,
+} from './citations'
 
 function makeCitation(label: string, page: number, filename = 'contract.pdf'): Citation {
   return {
@@ -69,5 +75,38 @@ describe('splitAnswer', () => {
 describe('citationLabel', () => {
   it('removes the square brackets', () => {
     expect(citationLabel('[contract.pdf, p. 4]')).toBe('contract.pdf, p. 4')
+  })
+})
+
+describe('isOpenAnswerSource and isOpenFieldSource', () => {
+  const answer: OpenSource = {
+    kind: 'answer',
+    answerId: 2,
+    display: '[contract.pdf, p. 4]',
+    citations: [makeCitation('S1', 4)],
+  }
+  const field: OpenSource = {
+    kind: 'field',
+    answerId: 6,
+    field: 'total_amount',
+    label: 'Total due',
+    value: '15,950.00',
+    citations: [makeCitation('total_amount', 1, 'invoice.pdf')],
+  }
+
+  it('recognises the marker of an answer that is open', () => {
+    expect(isOpenAnswerSource(answer, 2, '[contract.pdf, p. 4]')).toBe(true)
+    expect(isOpenAnswerSource(answer, 4, '[contract.pdf, p. 4]')).toBe(false)
+    expect(isOpenAnswerSource(null, 2, '[contract.pdf, p. 4]')).toBe(false)
+  })
+
+  it('opens one field only, even when several fields share a page', () => {
+    expect(isOpenFieldSource(field, 6, 'total_amount')).toBe(true)
+    expect(isOpenFieldSource(field, 6, 'currency')).toBe(false)
+  })
+
+  it('never mixes a field with an answer marker', () => {
+    expect(isOpenAnswerSource(field, 6, '[invoice.pdf, p. 1]')).toBe(false)
+    expect(isOpenFieldSource(answer, 2, 'total_amount')).toBe(false)
   })
 })

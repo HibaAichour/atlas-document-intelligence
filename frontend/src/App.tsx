@@ -81,6 +81,10 @@ function App() {
           // would start a new session instead of continuing that one.
           canAsk={documents.selectedIds.size > 0 && !sessions.isOpening}
           onAsk={(question) => void chat.ask(question)}
+          documents={documents.documents}
+          selectedIds={documents.selectedIds}
+          canExtract={!sessions.isOpening}
+          onExtract={(document) => void chat.extract(document)}
           openSource={openSource}
           onOpenSource={setOpenSource}
         />

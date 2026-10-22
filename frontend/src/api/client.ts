@@ -6,6 +6,7 @@ import type {
   AskRequest,
   AskResponse,
   DocumentInfo,
+  ExtractRequest,
   HealthInfo,
   SessionAskResponse,
   SessionDetail,
@@ -132,6 +133,16 @@ export function askInSession(
 ): Promise<SessionAskResponse> {
   return request<SessionAskResponse>(
     `/api/sessions/${encodeURIComponent(sessionId)}/ask`,
+    postJson(payload),
+  )
+}
+/** Extract the key fields of one document inside a session; the backend saves the result. */
+export function extractInSession(
+  sessionId: string,
+  payload: ExtractRequest,
+): Promise<SessionAskResponse> {
+  return request<SessionAskResponse>(
+    `/api/sessions/${encodeURIComponent(sessionId)}/extract`,
     postJson(payload),
   )
 }
