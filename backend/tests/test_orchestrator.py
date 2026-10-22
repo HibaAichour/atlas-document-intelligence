@@ -9,7 +9,9 @@ from typing import cast
 
 import pytest
 
+from app.agents.analyst import DocumentAnalyst
 from app.agents.critic import Critic
+from app.agents.extractor import Extractor
 from app.agents.orchestrator import ASK_PLAN, Orchestrator
 from app.agents.writer import Writer
 from app.db.repositories import DocumentRepository
@@ -81,6 +83,8 @@ def make_orchestrator(
         retriever,
         Writer(fake_llm),
         Critic(fake_llm, use_model=critic_model),
+        DocumentAnalyst(fake_llm),
+        Extractor(fake_llm),
         min_score=min_score,
         clock=StepClock(),
     )

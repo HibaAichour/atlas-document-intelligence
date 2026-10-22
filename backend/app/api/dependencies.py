@@ -6,7 +6,9 @@ from typing import Annotated
 from fastapi import Depends, Request
 from sqlalchemy.orm import Session
 
+from app.agents.analyst import DocumentAnalyst
 from app.agents.critic import Critic
+from app.agents.extractor import Extractor
 from app.agents.orchestrator import Orchestrator
 from app.agents.writer import Writer
 from app.core.config import Settings, get_settings
@@ -62,5 +64,7 @@ def get_orchestrator(
         retriever,
         Writer(llm),
         Critic(llm, use_model=settings.critic_use_llm),
+        DocumentAnalyst(llm),
+        Extractor(llm),
         min_score=settings.retrieval_min_score,
     )
