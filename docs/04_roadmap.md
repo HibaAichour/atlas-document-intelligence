@@ -59,11 +59,11 @@ Cocher les cases au fur et à mesure. Durée totale estimée : 38 à 50 jours de
 - **Fin** : fermer l'onglet, revenir, tout est là
 
 ## Étape 9 : Agents et orchestration (5 à 7 jours)
-- [ ] Critic
-- [ ] Document Analyst
-- [ ] Extractor (JSON structuré)
-- [ ] Orchestrator (routage simple)
-- [ ] Affichage des agents intervenus
+- [x] Critic
+- [x] Document Analyst
+- [x] Extractor (JSON structuré)
+- [x] Orchestrator (routage simple)
+- [x] Affichage des agents intervenus
 - **Fin** : une extraction passe par Analyst, Extractor, Critic
 
 ## Étape 10 : Export Word et PowerPoint (2 à 3 jours)

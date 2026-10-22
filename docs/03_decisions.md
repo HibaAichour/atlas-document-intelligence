@@ -10,6 +10,84 @@ Format : une entrée par décision, la plus récente en haut.
 - **Conséquences** : impact sur le projet, lien avec la V2
 
 ---
+## [2026-10-22] Étape 9 validée dans Docker
+- **Contexte** : les agents, l'extraction et le nouvel affichage doivent fonctionner avec le frontend compilé servi par Nginx et la base du volume Docker.
+- **Décision** : aucune modification des Dockerfiles ; reconstruction avec `docker compose up -d --build`. Au démarrage, `add_missing_columns` ajoute `messages.review` et `messages.extraction` à la base existante, sans erreur et sans perte des sessions. La facture de démo est téléversée dans le volume par l'interface (OCR dans le conteneur).
+- **Alternatives écartées** : recréer le volume (`docker compose down -v`), inutile grâce à la mise à jour automatique des colonnes.
+- **Conséquences** : scénarios 1 à 3 validés sur `localhost:8080` : réponse citée (page 4, verdict « no problem found », Retrieval 43 ms → Writer 5,5 s → Critic 2,6 s), refus immédiat en 0,1 s (Writer et Critic « not run »), extraction de la facture, session relue après rechargement. Les trois images de base (`python:3.13-slim`, `node:24-alpine` et, pour la première fois, `nginx:stable-alpine`) ont changé d'empreinte : build complet de 6,5 minutes. La question de figer les images (étape 12) concerne les trois.
+
+## [2026-10-22] Interface : agents intervenus, verdict du Critic, mode Ask / Extract
+- **Contexte** : la démo doit montrer quels agents ont travaillé, ce que le Critic a vérifié, et permettre une extraction depuis l'interface.
+- **Décision** : sous chaque réponse, une ligne « AGENTS » avec les étapes dans l'ordre du plan et leur durée (`lib/trace.ts` : « < 1 ms », « 4 ms », « 3.3 s » ; un agent arrêté en corail « stopped », un agent non exécuté en gris « not run »). Verdict du Critic (`components/CriticReview.tsx`) : une ligne verte sans problème (« rules only » si seul le code a vérifié), sinon un encadré corail en deux groupes, « Certain » (problèmes du code) et « To check » (problèmes du modèle, avec un avertissement). Tous les textes sont écrits par le frontend à partir du nom de l'agent, du statut et du code du problème (`lib/i18n.ts`), jamais à partir des champs `summary` et `message` du backend. Sélecteur Ask / Extract dans la zone de saisie ; en Extract, liste des documents prêts, indépendante des cases cochées (le premier coché est présélectionné, `lib/extraction.ts`). Résultat en tableau (`components/ExtractionView.tsx`) : champ, valeur en serif, pastille de page qui ouvre le panneau Source, problèmes du Critic sous la valeur concernée. Un nouveau type de message `extracted` dans `chatReducer`, restauré par `restoreMessages`. `OpenSource` distingue une citation de réponse (`answer`) d'une valeur extraite (`field`) : pour une valeur, le panneau explique d'où elle vient et masque le score de similarité.
+- **Alternatives écartées** : afficher le `summary` technique du backend (non traduisible à l'étape 10 bis) ; limiter l'extraction aux documents cochés (il faudrait cocher puis décocher pour une simple extraction) ; deux listes de messages séparées pour les questions et les extractions (ordre difficile à garder) ; afficher « 0 ms » pour le Critic par le code (semble dire que l'agent n'a rien fait).
+- **Conséquences** : 95 tests frontend. Vérifié avec un faux backend (captures et parcours en direct), puis en natif et dans Docker avec `qwen2.5:3b`. Le texte de la demande (« Extract the key fields of … ») est enregistré en anglais par le backend : à faire écrire par le frontend à l'étape 10 bis. Deux documents de même nom donnent deux marqueurs de citation identiques (doublon de la base native) : à signaler dans le README.
+
+## [2026-10-22] API de l'extraction : route de session, sélection inchangée
+- **Contexte** : le plan `extract` doit être appelable depuis l'interface et son résultat enregistré dans l'historique.
+- **Décision** : `POST /api/sessions/{id}/extract` avec `{"document_id"}`. Session ou document inconnu : 404 ; document pas prêt ou sans texte : 409 ; tous vérifiés avant tout appel au LLM. `LLMError` : 503, rien n'est enregistré (`extract_or_503`). Le message user est écrit par le code ; le message assistant a `mode="extract"`, `status` `answered` ou `refused` (`refusal_reason="unsupported_document"`, ajouté à `RefusalReason`), l'extraction, le verdict et la trace. Les sources des valeurs ne sont que dans `extraction` (`sources` reste vide). Une extraction ne modifie pas les documents sélectionnés de la session (`add_exchange(document_ids=None)`). Réponse au format de `SessionAskResponse`, partagée avec `/ask` (`exchange_response`). `IssueOut.field` facultatif, `None` par défaut.
+- **Alternatives écartées** : 400 ou 422 pour un document pas prêt (422 est déjà utilisé par FastAPI pour un corps invalide) ; recopier les sources dans `sources` (données en double) ; `session_documents = [document_id]` (une extraction effacerait la sélection des questions) ; une route sans état `/api/extract` (rien ne la demande ; à ajouter à l'étape 11 si l'évaluation en a besoin) ; renommer `SessionAskResponse` (changement cosmétique qui touche le frontend).
+- **Conséquences** : 337 tests backend. Mesures avec `qwen2.5:3b` en natif : facture en 8,2 s (Analyst 3,3 s, Extractor 4,9 s, Critic 4 ms), contrat en 10,7 s (Analyst 2,0 s, Extractor 8,7 s) ; 15 champs justes sur 15, dont la date d'effet (1 March 2026 et non la date de signature) et le préavis de 60 jours (sans confusion avec le délai de remédiation). Chaque champ porte une copie complète de sa source (11 Ko pour la facture) : accepté en V1, comme pour les citations.
+
+## [2026-10-22] Plan extract et source de chaque valeur
+- **Contexte** : une extraction doit passer par Analyst, Extractor et Critic, et chaque valeur doit pointer vers une page vérifiable.
+- **Décision** : `EXTRACT_PLAN` = analyst → extractor → critic, exécuté par la même boucle que le plan `ask`. `Orchestrator.extract(repository, document)` renvoie un `ExtractOutcome` (statut `extracted` / `refused`, type de document, valeurs, verdict, trace), avec un message écrit par le code et la forme JSON enregistrée (`extraction_dict`). La source d'une valeur est le chunk de sa page qui contient la valeur. Un document « other » : analyst `refused`, extractor et critic `skipped`.
+- **Alternatives écartées** : demander au modèle de citer le passage (un 3B recopie mal les sources) ; source = page entière (pas de passage précis à afficher).
+- **Conséquences** : une valeur dont la page ne contient pas le texte n'a pas de source cliquable, et le Critic la signale.
+
+## [2026-10-22] Critic d'extraction : contrôles par le code seulement
+- **Contexte** : une valeur extraite est vérifiable mécaniquement contre les pages, contrairement à une phrase libre.
+- **Décision** : `review_extraction(result, pages)` : `missing_required_field`, `value_not_found`, `wrong_page`, `unreadable_date`, `unreadable_amount`. Les comparaisons normalisent le texte et les nombres (zéros décimaux finaux ignorés). `Issue` reçoit un champ `field`.
+- **Alternatives écartées** : un contrôle par le modèle (lent, avec des fausses alertes mesurées en 9.2, pour une vérification que le code fait mieux).
+- **Conséquences** : le contrôle prend moins d'une milliseconde ; tous ses problèmes sont « certains » dans l'interface.
+
+## [2026-10-22] Champs fixes par type de document et Extractor
+- **Contexte** : un 3B extrait mal des champs libres et invente des clés.
+- **Décision** : `FieldSpec` (nom, libellé, type `text` / `date` / `amount`, obligatoire, description). `INVOICE_FIELDS` : numéro, date, échéance et total obligatoires ; devise, fournisseur, client. `CONTRACT_FIELDS` : numéro d'accord, prestataire, client et date d'effet obligatoires ; durée initiale, préavis de résiliation, préavis de non-renouvellement, droit applicable. L'Extractor demande un JSON `{"fields": {nom: {"value", "page"}}}` avec des valeurs recopiées exactement ; les champs ajoutés par le modèle sont ignorés, un nombre est converti en texte ; un JSON invalide lève `LLMError`.
+- **Alternatives écartées** : champs choisis par l'utilisateur (hors périmètre V1) ; schéma Pydantic généré à la volée (plus complexe, même résultat).
+- **Conséquences** : comportement prévisible et testable. Ajouter un type de document revient à ajouter une liste de champs.
+
+## [2026-10-22] Document Analyst : type par le modèle, pages par le code
+- **Contexte** : l'Extractor doit recevoir les bonnes pages sans dépasser le contexte de 4096 tokens.
+- **Décision** : le type (`invoice` / `contract` / `other`) est demandé au modèle (JSON validé), avec des mots-clés de secours ; si le modèle répond « other » alors que les mots-clés obtiennent au moins 2, les mots-clés décident. Les pages sont choisies par le code d'après les mots-clés des champs, dans un budget de 8 000 caractères (`MAX_EXTRACTION_CHARS`). En cas de panne du modèle, l'Analyst se rabat sur les mots-clés.
+- **Alternatives écartées** : pages choisies par le modèle (peu fiable avec un 3B) ; envoyer tout le document (dépasse le contexte).
+- **Conséquences** : contrat → pages 1, 2, 4 et 6 ; facture → page 1. Un document « other » est refusé sans appel à l'Extractor.
+
+## [2026-10-22] Seuil de pertinence trop haut pour la facture scannée : reporté à l'étape 11
+- **Contexte** : sur « total amount due and when », le chunk qui contient la réponse obtient 0,59, sous le seuil de 0,60, et le petit dernier chunk 0,667 : le Writer répond `NOT_FOUND`, à juste titre.
+- **Décision** : ne rien changer maintenant.
+- **Alternatives écartées** : baisser le seuil sur un seul exemple (réglage à l'aveugle, risque de laisser passer des questions hors sujet).
+- **Conséquences** : causes identifiées (seuil calibré sur un texte rédigé, lignes de tableau mal lues par Tesseract, petit dernier chunk). À l'étape 11 : recalibrer avec `probe_scores` sur tous les documents de démo, et envisager de garder les passages proches du meilleur. Le mode Extract n'est pas concerné (pas de retrieval).
+
+## [2026-10-22] Facture de démo fictive, scannée, générée par script
+- **Contexte** : le scénario 3 demande une vraie facture scannée, cohérente avec le contrat.
+- **Décision** : `scripts/make_demo_invoice.py` (Pillow, police intégrée, grain à graine fixe, vérification OCR intégrée) produit `demo_documents/invoice_HDS-INV-2026-0042.pdf`, sans couche texte. Données cohérentes avec les articles 3.1 à 3.4 du contrat : 1 April 2026, échéance 1 May 2026, total USD 15,950.00, Agreement No. HDS-2026-014.
+- **Alternatives écartées** : une facture réelle (confidentialité) ; un PDF texte (ne démontre pas l'OCR).
+- **Conséquences** : facture reproductible à l'identique. Lue par OCR en natif et dans Docker.
+
+## [2026-10-22] Critic des réponses : contrôles par le code, contrôle par le modèle mesuré
+- **Contexte** : le Writer 3B peut citer de travers ou inventer un chiffre ; le Critic doit le signaler sans modifier la réponse.
+- **Décision** : contrôles par le code : `invented_citations`, `no_citation`, `uncited_sentence`, `unsupported_number` (nombres normalisés, numéros de page des citations retirés). Contrôle par le modèle (`CRITIC_USE_LLM`, activé par défaut) : JSON `{"unsupported": [...]}` sur les phrases numérotées ; une réponse inutilisable donne `model_checked: false`, jamais un échec. Plan `ask` = retrieval → writer → critic. Verdict renvoyé par `/api/ask` et les sessions (`review`), enregistré en base. Dans l'interface, les problèmes du modèle sont « à vérifier », ceux du code « certains ».
+- **Alternatives écartées** : variantes « un verdict par phrase » (5 passages, passages cités seuls, avec contexte), mesurées avec `scripts/probe_critic.py` sur 9 phrases du contrat : 6/9 avec 2 oublis, contre 7/9 sans oubli et 2 fausses alertes pour la consigne retenue. Les passages cités seuls divisent le temps par 2 mais laissent passer la confusion « délai de remédiation » / « préavis ».
+- **Conséquences** : environ 2 à 3 s de plus par réponse en local. Les fausses alertes viennent des phrases elliptiques (« it is 60 days ») et d'une phrase presque identique à une phrase fausse voisine. Les tests d'API désactivent le contrôle par le modèle (fixture `data_dir`). À mesurer avec `gpt-oss-20b` à l'étape 12. Cas observé pour l'étape 11 : « 30 days for cause termination » (délai de remédiation présenté comme un préavis) n'a pas été signalé.
+
+## [2026-10-22] Mise à jour de la base au démarrage : add_missing_columns
+- **Contexte** : `create_all` ne modifie jamais une table existante ; les nouvelles colonnes `messages.review` et `messages.extraction` imposaient de recréer la base et de perdre l'historique.
+- **Décision** : `add_missing_columns()` (`app/db/session.py`), appelée au démarrage : `ALTER TABLE ADD COLUMN` pour chaque colonne facultative déclarée par les modèles et absente de la table ; une colonne obligatoire manquante lève `SchemaUpgradeError` au lieu d'inventer une valeur.
+- **Alternatives écartées** : Alembic (un outil de plus en V1) ; recréer la base à chaque changement (perte des sessions).
+- **Conséquences** : les bases native et Docker ont été mises à jour sans perte. Toute autre évolution du schéma (renommage, colonne obligatoire) reste manuelle ; Alembic pourra arriver avec PostgreSQL en V2.
+
+## [2026-10-22] Trace d'exécution des agents
+- **Contexte** : l'interface doit afficher les agents intervenus, et le débogage du 3B demande de savoir quelle étape a pris du temps.
+- **Décision** : `app/agents/trace.py` : `AgentRun` (nom, `kind` agent ou tool, statut `ok` / `refused` / `skipped` / `failed`, durée en ms, résumé technique) et `TraceRecorder`, avec une horloge injectable pour des durées exactes dans les tests. La trace est renvoyée par l'API et enregistrée dans `messages.agent_trace`.
+- **Alternatives écartées** : journaux texte (illisibles par l'interface) ; outil d'observabilité (V2).
+- **Conséquences** : les étapes non exécutées apparaissent (« skipped ») avec la raison de l'arrêt : l'interface montre qu'un refus immédiat n'a pas appelé le modèle.
+
+## [2026-10-22] Orchestrator à règles avec plans explicites
+- **Contexte** : il faut enchaîner retrieval, Writer et Critic (puis Analyst, Extractor et Critic) de façon déterministe, en gardant une place pour le replanning de la V2.
+- **Décision** : `app/agents/orchestrator.py` : dataclasses `Step` et `Plan`, un plan par mode (`PLANS`), une boucle `_run` partagée. Quand une étape s'arrête (refus), les suivantes sont `skipped` avec la raison. `QuestionAnswerer` est supprimé : `app/rag/answering.py` ne garde que `AnswerResult` (avec trace et verdict), `REFUSAL_MESSAGE` et `refusal()`. `test_answering.py` devient `test_orchestrator.py`.
+- **Alternatives écartées** : garder `QuestionAnswerer` à côté de l'Orchestrator (deux chemins pour la même question) ; un framework d'agents (LangGraph, CrewAI : dépendances lourdes, logique moins visible).
+- **Conséquences** : en V2, le replanning modifiera la liste d'étapes après le verdict du Critic, sans changer les agents. Sur le CV : « rule-based orchestrator with explicit plans ».
+
 ## [2026-10-21] Étape 8 validée dans Docker
 - **Contexte** : l'historique doit fonctionner avec le frontend compilé servi par Nginx et la base SQLite du volume Docker.
 - **Décision** : aucune modification des Dockerfiles ; reconstruction avec `docker compose up -d --build`. Les tables `sessions`, `messages` et `session_documents` sont créées au démarrage par `create_all`, sans toucher aux documents déjà indexés.
