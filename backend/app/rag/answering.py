@@ -15,7 +15,9 @@ from app.rag.citations import Citation
 REFUSAL_MESSAGE = "I could not find this information in the available documents."
 
 AnswerStatus = Literal["answered", "refused"]
-RefusalReason = Literal["no_relevant_passages", "not_found_by_model"]
+# "unsupported_document": an extraction on a document that is neither an
+# invoice nor a contract (extract mode, see app.agents.orchestrator).
+RefusalReason = Literal["no_relevant_passages", "not_found_by_model", "unsupported_document"]
 AnswerWarning = Literal["invalid_citations_removed", "no_valid_citation"]
 
 

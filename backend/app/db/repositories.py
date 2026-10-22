@@ -171,6 +171,7 @@ class AssistantReply:
     best_score: float | None = None
     agent_trace: list[dict[str, Any]] = field(default_factory=list)
     review: dict[str, Any] | None = None  # the Critic's verdict (None for a refusal)
+    extraction: dict[str, Any] | None = None  # extracted fields (extract mode only)
 
 
 @dataclass(frozen=True)
@@ -235,7 +236,7 @@ class SessionRepository:
         chat_session: ChatSession,
         *,
         question: str,
-        document_ids: Sequence[str],
+        document_ids: Sequence[str] | None,
         reply: AssistantReply,
         mode: MessageMode = MessageMode.ASK,
     ) -> tuple[Message, Message]:
@@ -243,6 +244,8 @@ class SessionRepository:
 
         A single commit: either everything is saved, or nothing is.
         The first question also becomes the session title.
+        document_ids=None keeps the current selection: an extraction uses one
+        document but must not change the documents checked for questions.
         """
         position = len(chat_session.messages)
         question_message = Message(
@@ -264,9 +267,11 @@ class SessionRepository:
             warnings=list(reply.warnings),
             best_score=reply.best_score,
             review=reply.review,
+            extraction=reply.extraction,
         )
         chat_session.messages.extend([question_message, answer_message])
-        self._replace_documents(chat_session, document_ids)
+        if document_ids is not None:
+            self._replace_documents(chat_session, document_ids)
         if chat_session.title is None:
             chat_session.title = make_session_title(question)
         chat_session.updated_at = utc_now()

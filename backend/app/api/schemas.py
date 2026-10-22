@@ -1,10 +1,11 @@
 """Shapes of the JSON received and returned by the API."""
 
 from datetime import datetime
-from typing import Annotated, Literal
+from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
+from app.agents.analyst import DocumentType
 from app.agents.critic import IssueCode, IssueOrigin, Review, Verdict
 from app.agents.trace import AgentRun, StepKind, StepStatus
 from app.db.models import DocumentStatus, Message, MessageMode, MessageRole
@@ -87,6 +88,12 @@ class AskRequest(BaseModel):
     document_ids: list[str] | None = None
 
 
+class ExtractRequest(BaseModel):
+    """An extraction of the key fields of one document."""
+
+    document_id: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
+
+
 class CitationOut(BaseModel):
     """A passage cited by the answer: what is shown and where it comes from."""
 
@@ -137,6 +144,9 @@ class IssueOut(BaseModel):
     origin: IssueOrigin  # "code" (a rule) or "model" (the LLM's judgement)
     message: str  # short technical explanation
     sentence: str | None  # the sentence concerned, without its citations
+    # For an extraction: the field concerned. Defaults to None so that reviews
+    # saved before this field existed are still read back.
+    field: str | None = None
 
 
 class ReviewOut(BaseModel):
@@ -155,15 +165,34 @@ class AskResponse(BaseModel):
     """An answer with its checked sources, or a refusal."""
 
     question: str
-    status: Literal["answered", "refused"]
+    status: AnswerStatus
     answer: str  # the refusal message when status is "refused"
-    refusal_reason: Literal["no_relevant_passages", "not_found_by_model"] | None
+    refusal_reason: RefusalReason | None
     citations: list[CitationOut]
     invalid_citations: list[str]  # identifiers invented by the model, removed
-    warnings: list[Literal["invalid_citations_removed", "no_valid_citation"]]
+    warnings: list[AnswerWarning]
     best_score: float | None  # highest retrieval score, None if nothing was found
     review: ReviewOut | None  # the Critic's verdict; None for a refusal
     agent_trace: list[AgentRunOut]  # the steps run, in order (skipped ones included)
+
+
+class ExtractedFieldOut(BaseModel):
+    """One extracted field: its value, its page and the passage it comes from."""
+
+    name: str  # e.g. "invoice_number"
+    label: str  # e.g. "Invoice number"
+    value: str | None  # None when the field was not found
+    page: int | None
+    source: CitationOut | None  # the chunk of that page holding the value, if found
+
+
+class ExtractionOut(BaseModel):
+    """The fields extracted from one document."""
+
+    document_id: str
+    filename: str
+    document_type: DocumentType  # "invoice" or "contract"
+    fields: list[ExtractedFieldOut]
 
 
 class SessionSummaryOut(BaseModel):
@@ -192,7 +221,9 @@ class MessageOut(BaseModel):
 
     An answer has the same fields as AskResponse, so the frontend shows a
     restored answer exactly like a live one. For a question, the answer
-    fields are empty (status None, no citations).
+    fields are empty (status None, no citations). An extraction (mode
+    "extract") keeps its fields and their sources in "extraction"; its
+    "citations" list stays empty.
     """
 
     id: str
@@ -208,6 +239,7 @@ class MessageOut(BaseModel):
     best_score: float | None
     review: ReviewOut | None  # the Critic's verdict (None for questions, refusals, old answers)
     agent_trace: list[AgentRunOut]  # the steps run (empty for questions and old answers)
+    extraction: ExtractionOut | None  # the extracted fields (extract answers only)
     created_at: datetime
 
     @classmethod
@@ -229,6 +261,7 @@ class MessageOut(BaseModel):
                 "best_score": message.best_score,
                 "review": message.review,
                 "agent_trace": message.agent_trace,
+                "extraction": message.extraction,
                 "created_at": message.created_at,
             }
         )
@@ -246,7 +279,11 @@ class SessionOut(BaseModel):
 
 
 class SessionAskResponse(BaseModel):
-    """The question and answer just saved, and the updated session summary."""
+    """The request and answer just saved, and the updated session summary.
+
+    Returned by both POST /api/sessions/{id}/ask and /extract: "question" is
+    the user's message (for an extraction, written by the code).
+    """
 
     session: SessionSummaryOut
     question: MessageOut

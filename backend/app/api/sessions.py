@@ -1,29 +1,31 @@
-"""Routes for chat sessions: list, create, read, and ask a question inside one."""
+"""Routes for chat sessions: list, create, read, ask a question or extract fields inside one."""
 
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.agents.orchestrator import Orchestrator
+from app.agents.orchestrator import ExtractOutcome, Orchestrator
 from app.api.ask import answer_or_503
 from app.api.dependencies import get_db, get_orchestrator
 from app.api.schemas import (
     AskRequest,
     CitationOut,
+    ExtractRequest,
     MessageOut,
     SessionAskResponse,
     SessionOut,
     SessionSummaryOut,
 )
 from app.core.config import Settings, get_settings
-from app.db.models import ChatSession, DocumentStatus
+from app.db.models import ChatSession, Document, DocumentStatus, Message, MessageMode
 from app.db.repositories import (
     AssistantReply,
     DocumentRepository,
     SessionRepository,
     SessionSummary,
 )
+from app.llm.base import LLMError
 from app.rag.answering import AnswerResult
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
@@ -33,6 +35,7 @@ AppSettings = Annotated[Settings, Depends(get_settings)]
 AppOrchestrator = Annotated[Orchestrator, Depends(get_orchestrator)]
 
 SESSION_NOT_FOUND = "Session not found."
+DOCUMENT_NOT_FOUND = "Document not found."
 
 
 def get_session_or_404(repository: SessionRepository, session_id: str) -> ChatSession:
@@ -58,6 +61,66 @@ def to_reply(result: AnswerResult) -> AssistantReply:
         best_score=result.best_score,
         agent_trace=[run.to_dict() for run in result.trace],
         review=None if result.review is None else result.review.to_dict(),
+    )
+
+
+def to_extract_reply(outcome: ExtractOutcome) -> AssistantReply:
+    """Turn an extraction into the plain values saved in the database.
+
+    The sources of the values live in "extraction" only (one copy per field),
+    so "sources" stays empty. A refusal has no extraction and no review.
+    """
+    refused = outcome.status == "refused"
+    return AssistantReply(
+        content=outcome.message,
+        status="refused" if refused else "answered",
+        refusal_reason="unsupported_document" if refused else None,
+        agent_trace=[run.to_dict() for run in outcome.trace],
+        review=None if outcome.review is None else outcome.review.to_dict(),
+        extraction=outcome.extraction_dict(),
+    )
+
+
+def get_ready_document(db: Session, document_id: str) -> Document:
+    """Return the document to extract from: 404 if unknown, 409 if not ready."""
+    document = DocumentRepository(db).get(document_id)
+    if document is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, DOCUMENT_NOT_FOUND)
+    if document.status != DocumentStatus.READY:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"Document is not ready for extraction (status: {document.status}).",
+        )
+    return document
+
+
+def extract_or_503(orchestrator: Orchestrator, db: Session, document: Document) -> ExtractOutcome:
+    """Run the extract plan and turn its failures into clear HTTP errors.
+
+    No retrieval runs in this plan, so only the language model can be down (503).
+    A ready document with no extracted page cannot be read (409).
+    """
+    try:
+        return orchestrator.extract(DocumentRepository(db), document)
+    except ValueError as error:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, "Document has no extracted text to read."
+        ) from error
+    except LLMError as error:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE, f"Extraction failed: {error}"
+        ) from error
+
+
+def exchange_response(
+    chat_session: ChatSession, question: Message, answer: Message
+) -> SessionAskResponse:
+    """The messages just saved and the updated session summary."""
+    summary = SessionSummary(chat_session, message_count=len(chat_session.messages))
+    return SessionAskResponse(
+        session=SessionSummaryOut.from_summary(summary),
+        question=MessageOut.from_message(question),
+        answer=MessageOut.from_message(answer),
     )
 
 
@@ -123,9 +186,36 @@ def ask_in_session(
     question, answer = repository.add_exchange(
         chat_session, question=request.question, document_ids=used_ids, reply=to_reply(result)
     )
-    summary = SessionSummary(chat_session, message_count=len(chat_session.messages))
-    return SessionAskResponse(
-        session=SessionSummaryOut.from_summary(summary),
-        question=MessageOut.from_message(question),
-        answer=MessageOut.from_message(answer),
+    return exchange_response(chat_session, question, answer)
+
+
+# Plain "def": the LLM calls block, so it runs in a thread pool.
+@router.post("/{session_id}/extract")
+def extract_in_session(
+    session_id: str,
+    request: ExtractRequest,
+    db: DbSession,
+    orchestrator: AppOrchestrator,
+) -> SessionAskResponse:
+    """Extract the key fields of one document, then save the request and the result.
+
+    The user message is written by the code. A document that is neither an
+    invoice nor a contract gives a saved refusal (unsupported_document).
+    The documents selected for questions are not changed. On an error 503
+    nothing is saved, so the extraction can simply be run again.
+    """
+    repository = SessionRepository(db)
+    # Both checked before calling the model: a wrong id costs no LLM call.
+    chat_session = get_session_or_404(repository, session_id)
+    document = get_ready_document(db, request.document_id)
+
+    outcome = extract_or_503(orchestrator, db, document)
+
+    question, answer = repository.add_exchange(
+        chat_session,
+        question=f"Extract the key fields of {document.filename}",
+        document_ids=None,
+        reply=to_extract_reply(outcome),
+        mode=MessageMode.EXTRACT,
     )
+    return exchange_response(chat_session, question, answer)
