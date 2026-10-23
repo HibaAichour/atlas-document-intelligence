@@ -88,6 +88,9 @@ function stored(position: number, fields: Partial<StoredMessage>): StoredMessage
   }
 }
 
+const SESSION_ID = 'session-1'
+const SAVED = { sessionId: SESSION_ID, messageId: 'message-1' }
+
 function asked(): ChatMessage[] {
   return chatReducer([], {
     type: 'asked',
@@ -128,6 +131,7 @@ describe('chatReducer', () => {
       answerId: 2,
       response: EXTRACT_RESPONSE,
       seconds: 8.2,
+      saved: SAVED,
     })
 
     expect(messages[1]).toEqual({
@@ -136,6 +140,7 @@ describe('chatReducer', () => {
       status: 'extracted',
       response: EXTRACT_RESPONSE,
       seconds: 8.2,
+      saved: SAVED,
     })
     expect(isWaiting(messages)).toBe(false)
   })
@@ -146,6 +151,7 @@ describe('chatReducer', () => {
       answerId: 2,
       response: RESPONSE,
       seconds: 12.5,
+      saved: SAVED,
     })
 
     expect(messages[1]).toEqual({
@@ -154,6 +160,7 @@ describe('chatReducer', () => {
       status: 'done',
       response: RESPONSE,
       seconds: 12.5,
+      saved: SAVED,
     })
     expect(isWaiting(messages)).toBe(false)
   })
@@ -171,6 +178,7 @@ describe('chatReducer', () => {
       answerId: 2,
       response: RESPONSE,
       seconds: 3,
+      saved: SAVED,
     })
     const second = chatReducer(first, {
       type: 'asked',
@@ -210,16 +218,19 @@ describe('nextMessageId', () => {
 
 describe('restoreMessages', () => {
   it('turns a saved answer into the same response as a live answer', () => {
-    const restored = restoreMessages([
-      stored(0, { role: 'user', content: 'What is the notice period?' }),
-      stored(1, {
-        role: 'assistant',
-        content: 'It is 60 days [contract.pdf, p. 4].',
-        status: 'answered',
-        citations: [CITATION],
-        best_score: 0.77,
-      }),
-    ])
+    const restored = restoreMessages(
+      [
+        stored(0, { role: 'user', content: 'What is the notice period?' }),
+        stored(1, {
+          role: 'assistant',
+          content: 'It is 60 days [contract.pdf, p. 4].',
+          status: 'answered',
+          citations: [CITATION],
+          best_score: 0.77,
+        }),
+      ],
+      SESSION_ID,
+    )
 
     expect(restored).toEqual([
       { id: 1, role: 'user', text: 'What is the notice period?' },
@@ -229,23 +240,27 @@ describe('restoreMessages', () => {
         status: 'done',
         response: { ...RESPONSE, citations: [CITATION] },
         seconds: null,
+        saved: { sessionId: SESSION_ID, messageId: 'message-1' },
       },
     ])
   })
 
   it('keeps the reason of a refusal and links each answer to its own question', () => {
-    const restored = restoreMessages([
-      stored(0, { role: 'user', content: 'First?' }),
-      stored(1, { role: 'assistant', content: 'Answer.', status: 'answered' }),
-      stored(2, { role: 'user', content: "What is the CEO's salary?" }),
-      stored(3, {
-        role: 'assistant',
-        content: 'I could not find this information in the available documents.',
-        status: 'refused',
-        refusal_reason: 'no_relevant_passages',
-        best_score: 0.54,
-      }),
-    ])
+    const restored = restoreMessages(
+      [
+        stored(0, { role: 'user', content: 'First?' }),
+        stored(1, { role: 'assistant', content: 'Answer.', status: 'answered' }),
+        stored(2, { role: 'user', content: "What is the CEO's salary?" }),
+        stored(3, {
+          role: 'assistant',
+          content: 'I could not find this information in the available documents.',
+          status: 'refused',
+          refusal_reason: 'no_relevant_passages',
+          best_score: 0.54,
+        }),
+      ],
+      SESSION_ID,
+    )
 
     const refusal = restored[3]
     expect(refusal.role === 'assistant' && refusal.status === 'done').toBe(true)
@@ -258,36 +273,45 @@ describe('restoreMessages', () => {
   })
 
   it('puts the messages in position order, whatever order they arrive in', () => {
-    const restored = restoreMessages([
-      stored(1, { role: 'assistant', content: 'Answer.', status: 'answered' }),
-      stored(0, { role: 'user', content: 'Question?' }),
-    ])
+    const restored = restoreMessages(
+      [
+        stored(1, { role: 'assistant', content: 'Answer.', status: 'answered' }),
+        stored(0, { role: 'user', content: 'Question?' }),
+      ],
+      SESSION_ID,
+    )
 
     expect(restored.map((message) => message.id)).toEqual([1, 2])
     expect(restored[0]).toEqual({ id: 1, role: 'user', text: 'Question?' })
   })
 
   it('skips an assistant message that has no status', () => {
-    const restored = restoreMessages([
-      stored(0, { role: 'user', content: 'Question?' }),
-      stored(1, { role: 'assistant', content: 'Broken.', status: null }),
-    ])
+    const restored = restoreMessages(
+      [
+        stored(0, { role: 'user', content: 'Question?' }),
+        stored(1, { role: 'assistant', content: 'Broken.', status: null }),
+      ],
+      SESSION_ID,
+    )
 
     expect(restored).toEqual([{ id: 1, role: 'user', text: 'Question?' }])
   })
 
   it('keeps the review and the agents of a saved answer', () => {
     const review = { verdict: 'ok' as const, issues: [], model_checked: true }
-    const restored = restoreMessages([
-      stored(0, { role: 'user', content: 'Question?' }),
-      stored(1, {
-        role: 'assistant',
-        content: 'Answer.',
-        status: 'answered',
-        review,
-        agent_trace: TRACE,
-      }),
-    ])
+    const restored = restoreMessages(
+      [
+        stored(0, { role: 'user', content: 'Question?' }),
+        stored(1, {
+          role: 'assistant',
+          content: 'Answer.',
+          status: 'answered',
+          review,
+          agent_trace: TRACE,
+        }),
+      ],
+      SESSION_ID,
+    )
 
     const answer = restored[1]
     expect(answer.role === 'assistant' && answer.status === 'done').toBe(true)
@@ -298,36 +322,49 @@ describe('restoreMessages', () => {
   })
 
   it('turns a saved extraction into the same response as a live one', () => {
-    const restored = restoreMessages([
-      stored(0, { role: 'user', mode: 'extract', content: EXTRACT_RESPONSE.request }),
-      stored(1, {
-        role: 'assistant',
-        mode: 'extract',
-        content: EXTRACT_RESPONSE.message,
-        status: 'answered',
-        extraction: EXTRACTION,
-        review: EXTRACT_RESPONSE.review,
-        agent_trace: TRACE,
-      }),
-    ])
+    const restored = restoreMessages(
+      [
+        stored(0, { role: 'user', mode: 'extract', content: EXTRACT_RESPONSE.request }),
+        stored(1, {
+          role: 'assistant',
+          mode: 'extract',
+          content: EXTRACT_RESPONSE.message,
+          status: 'answered',
+          extraction: EXTRACTION,
+          review: EXTRACT_RESPONSE.review,
+          agent_trace: TRACE,
+        }),
+      ],
+      SESSION_ID,
+    )
 
     expect(restored).toEqual([
       { id: 1, role: 'user', text: EXTRACT_RESPONSE.request },
-      { id: 2, role: 'assistant', status: 'extracted', response: EXTRACT_RESPONSE, seconds: null },
+      {
+        id: 2,
+        role: 'assistant',
+        status: 'extracted',
+        response: EXTRACT_RESPONSE,
+        seconds: null,
+        saved: { sessionId: SESSION_ID, messageId: 'message-1' },
+      },
     ])
   })
 
   it('restores the refusal of an unsupported document', () => {
-    const restored = restoreMessages([
-      stored(0, { role: 'user', mode: 'extract', content: 'Extract the key fields of notes.pdf' }),
-      stored(1, {
-        role: 'assistant',
-        mode: 'extract',
-        content: 'This document is neither an invoice nor a contract.',
-        status: 'refused',
-        refusal_reason: 'unsupported_document',
-      }),
-    ])
+    const restored = restoreMessages(
+      [
+        stored(0, { role: 'user', mode: 'extract', content: 'Extract the key fields of notes.pdf' }),
+        stored(1, {
+          role: 'assistant',
+          mode: 'extract',
+          content: 'This document is neither an invoice nor a contract.',
+          status: 'refused',
+          refusal_reason: 'unsupported_document',
+        }),
+      ],
+      SESSION_ID,
+    )
 
     const refusal = restored[1]
     expect(refusal.role === 'assistant' && refusal.status === 'extracted').toBe(true)
@@ -339,15 +376,48 @@ describe('restoreMessages', () => {
   })
 
   it('skips a saved extraction that lost its fields', () => {
-    const restored = restoreMessages([
-      stored(0, { role: 'user', mode: 'extract', content: 'Extract' }),
-      stored(1, { role: 'assistant', mode: 'extract', content: 'x', status: 'answered' }),
-    ])
+    const restored = restoreMessages(
+      [
+        stored(0, { role: 'user', mode: 'extract', content: 'Extract' }),
+        stored(1, { role: 'assistant', mode: 'extract', content: 'x', status: 'answered' }),
+      ],
+      SESSION_ID,
+    )
 
     expect(restored).toEqual([{ id: 1, role: 'user', text: 'Extract' }])
   })
 
+  it('keeps where each result is saved, so it can be exported', () => {
+    const restored = restoreMessages(
+      [
+        stored(0, { role: 'user', content: 'First?' }),
+        stored(1, { role: 'assistant', content: 'Answer.', status: 'answered' }),
+        stored(2, { role: 'user', mode: 'extract', content: 'Extract' }),
+        stored(3, {
+          role: 'assistant',
+          mode: 'extract',
+          content: 'x',
+          status: 'answered',
+          extraction: EXTRACTION,
+        }),
+      ],
+      SESSION_ID,
+    )
+
+    const saved = restored.map((message) =>
+      message.role === 'assistant' && (message.status === 'done' || message.status === 'extracted')
+        ? message.saved
+        : null,
+    )
+    expect(saved).toEqual([
+      null,
+      { sessionId: SESSION_ID, messageId: 'message-1' },
+      null,
+      { sessionId: SESSION_ID, messageId: 'message-3' },
+    ])
+  })
+
   it('gives an empty conversation for a new session', () => {
-    expect(restoreMessages([])).toEqual([])
+    expect(restoreMessages([], SESSION_ID)).toEqual([])
   })
 })

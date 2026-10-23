@@ -3,6 +3,7 @@
 // dictionary of the same type: TypeScript will then report any missing text.
 
 import type { DocumentType, IssueCode } from '../api/types'
+import type { ExportFormat } from './export'
 
 const en = {
   // Language used to write dates and times ("19 Oct", "18:12").
@@ -84,6 +85,14 @@ const en = {
   stepRefused: 'stopped',
   stepSkipped: 'not run',
   stepFailed: 'failed',
+
+  // Export of a result, next to the agents.
+  exportLabel: 'Export',
+  exportNames: { docx: 'Word', pptx: 'PowerPoint' } satisfies Record<ExportFormat, string>,
+  exportAria: {
+    docx: 'Download this result as a Word document, sources included',
+    pptx: 'Download this result as a PowerPoint presentation, sources included',
+  } satisfies Record<ExportFormat, string>,
 
   // The Critic's verdict.
   criticOk: 'Checked by the Critic: no problem found.',

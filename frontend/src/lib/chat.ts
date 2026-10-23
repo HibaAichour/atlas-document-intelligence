@@ -11,6 +11,7 @@ import type {
   Review,
   StoredMessage,
 } from '../api/types'
+import type { SavedRef } from './export'
 
 /** The result of an extraction, as the chat shows it (live or restored). */
 export interface ExtractResponse {
@@ -29,12 +30,14 @@ export type ChatMessage =
   | { id: number; role: 'assistant'; status: 'pending'; mode: MessageMode }
   // seconds is null for a result restored from a saved session: the time was
   // measured by the browser when the request was sent, and is not saved.
+  // saved tells where the result is stored, so it can be exported.
   | {
       id: number
       role: 'assistant'
       status: 'done'
       response: AskResponse
       seconds: number | null
+      saved: SavedRef
     }
   | {
       id: number
@@ -42,13 +45,26 @@ export type ChatMessage =
       status: 'extracted'
       response: ExtractResponse
       seconds: number | null
+      saved: SavedRef
     }
   | { id: number; role: 'assistant'; status: 'error'; error: string }
 
 export type ChatAction =
   | { type: 'asked'; questionId: number; answerId: number; question: string; mode: MessageMode }
-  | { type: 'answered'; answerId: number; response: AskResponse; seconds: number }
-  | { type: 'extracted'; answerId: number; response: ExtractResponse; seconds: number }
+  | {
+      type: 'answered'
+      answerId: number
+      response: AskResponse
+      seconds: number
+      saved: SavedRef
+    }
+  | {
+      type: 'extracted'
+      answerId: number
+      response: ExtractResponse
+      seconds: number
+      saved: SavedRef
+    }
   | { type: 'failed'; answerId: number; error: string }
   | { type: 'loaded'; messages: ChatMessage[] }
 
@@ -69,6 +85,7 @@ export function chatReducer(messages: ChatMessage[], action: ChatAction): ChatMe
               status: 'done',
               response: action.response,
               seconds: action.seconds,
+              saved: action.saved,
             }
           : message,
       )
@@ -81,6 +98,7 @@ export function chatReducer(messages: ChatMessage[], action: ChatAction): ChatMe
               status: 'extracted',
               response: action.response,
               seconds: action.seconds,
+              saved: action.saved,
             }
           : message,
       )
@@ -152,14 +170,18 @@ export function toExtractResponse(request: string, message: StoredMessage): Extr
  * Each saved answer becomes the same response as a live one, with the request
  * sent just before it, so citations, refusals, extracted fields and warnings
  * are shown by the same code. Ids are position + 1: unique and stable within a
- * session.
+ * session. Each result keeps its saved id, so it can be exported.
  */
-export function restoreMessages(stored: readonly StoredMessage[]): ChatMessage[] {
+export function restoreMessages(
+  stored: readonly StoredMessage[],
+  sessionId: string,
+): ChatMessage[] {
   const ordered = [...stored].sort((a, b) => a.position - b.position)
   const restored: ChatMessage[] = []
   let lastRequest = ''
   for (const message of ordered) {
     const id = message.position + 1
+    const saved = { sessionId, messageId: message.id }
     if (message.role === 'user') {
       lastRequest = message.content
       restored.push({ id, role: 'user', text: message.content })
@@ -169,13 +191,20 @@ export function restoreMessages(stored: readonly StoredMessage[]): ChatMessage[]
     if (message.mode === 'extract') {
       const response = toExtractResponse(lastRequest, message)
       if (response !== null) {
-        restored.push({ id, role: 'assistant', status: 'extracted', response, seconds: null })
+        restored.push({
+          id,
+          role: 'assistant',
+          status: 'extracted',
+          response,
+          seconds: null,
+          saved,
+        })
       }
       continue
     }
     const response = toAskResponse(lastRequest, message)
     if (response !== null) {
-      restored.push({ id, role: 'assistant', status: 'done', response, seconds: null })
+      restored.push({ id, role: 'assistant', status: 'done', response, seconds: null, saved })
     }
   }
   return restored

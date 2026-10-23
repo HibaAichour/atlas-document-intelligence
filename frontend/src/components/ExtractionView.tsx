@@ -1,14 +1,17 @@
 import type { ExtractResponse } from '../lib/chat'
 import { isOpenFieldSource, type OpenSource } from '../lib/citations'
+import { canExportExtraction, type SavedRef } from '../lib/export'
 import type { Messages } from '../lib/i18n'
 import { fieldIssues, issueText } from '../lib/review'
 import { AgentTrace } from './AgentTrace'
 import { CriticReview } from './CriticReview'
+import { ExportLinks } from './ExportLinks'
 
 interface ExtractionViewProps {
   answerId: number
   response: ExtractResponse
   seconds: number | null // null for a result restored from a saved session
+  saved: SavedRef // where the result is saved, for the export
   openSource: OpenSource | null
   onOpenSource: (source: OpenSource) => void
   t: Messages
@@ -19,6 +22,7 @@ export function ExtractionView({
   answerId,
   response,
   seconds,
+  saved,
   openSource,
   onOpenSource,
   t,
@@ -112,7 +116,10 @@ export function ExtractionView({
         {timing}
       </p>
       <CriticReview review={response.review} issuesInTable t={t} />
-      <AgentTrace trace={response.agent_trace} t={t} />
+      <div className="answer-footer">
+        <AgentTrace trace={response.agent_trace} t={t} />
+        {canExportExtraction(response) && <ExportLinks saved={saved} t={t} />}
+      </div>
     </div>
   )
 }

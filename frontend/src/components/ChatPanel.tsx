@@ -5,8 +5,10 @@ import type { ChatMessage } from '../lib/chat'
 import { citationLabel, isOpenAnswerSource, splitAnswer, type OpenSource } from '../lib/citations'
 import { chosenDocumentId, extractableDocuments } from '../lib/extraction'
 import { useMessages, type Messages } from '../lib/i18n'
+import { canExportAnswer, type SavedRef } from '../lib/export'
 import { AgentTrace } from './AgentTrace'
 import { CriticReview } from './CriticReview'
+import { ExportLinks } from './ExportLinks'
 import { ExtractionView } from './ExtractionView'
 
 // Same limit as the backend (MAX_QUERY_LENGTH), so a question is never refused.
@@ -195,6 +197,7 @@ function MessageView({ message, openSource, onOpenSource, t }: MessageViewProps)
         answerId={message.id}
         response={message.response}
         seconds={message.seconds}
+        saved={message.saved}
         openSource={openSource}
         onOpenSource={onOpenSource}
         t={t}
@@ -206,6 +209,7 @@ function MessageView({ message, openSource, onOpenSource, t }: MessageViewProps)
       answerId={message.id}
       response={message.response}
       seconds={message.seconds}
+      saved={message.saved}
       openSource={openSource}
       onOpenSource={onOpenSource}
       t={t}
@@ -217,12 +221,21 @@ interface AnswerViewProps {
   answerId: number
   response: AskResponse
   seconds: number | null // null for an answer restored from a saved session
+  saved: SavedRef // where the answer is saved, for the export
   openSource: OpenSource | null
   onOpenSource: (source: OpenSource) => void
   t: Messages
 }
 
-function AnswerView({ answerId, response, seconds, openSource, onOpenSource, t }: AnswerViewProps) {
+function AnswerView({
+  answerId,
+  response,
+  seconds,
+  saved,
+  openSource,
+  onOpenSource,
+  t,
+}: AnswerViewProps) {
   // The response time is only known for an answer received in this tab.
   const timing = seconds === null ? null : <> {t.answeredIn(seconds)}</>
 
@@ -284,7 +297,10 @@ function AnswerView({ answerId, response, seconds, openSource, onOpenSource, t }
         {timing}
       </p>
       <CriticReview review={response.review} t={t} />
-      <AgentTrace trace={response.agent_trace} t={t} />
+      <div className="answer-footer">
+        <AgentTrace trace={response.agent_trace} t={t} />
+        {canExportAnswer(response) && <ExportLinks saved={saved} t={t} />}
+      </div>
     </div>
   )
 }

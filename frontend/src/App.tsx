@@ -33,7 +33,7 @@ function App() {
   function showSession(session: SessionDetail | null): void {
     // The open citation belonged to the previous conversation.
     setOpenSource(null)
-    chat.load(session === null ? [] : restoreMessages(session.messages))
+    chat.load(session === null ? [] : restoreMessages(session.messages, session.id))
     documents.select(session === null ? 'all' : restoredSelection(session.document_ids))
   }
 

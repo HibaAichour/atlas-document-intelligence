@@ -48,7 +48,8 @@ export function useChat({ selectedIds, ensureSession, onSaved }: ChatOptions) {
       if (response === null) {
         throw new Error(t.unexpectedError)
       }
-      dispatch({ type: 'answered', answerId, response, seconds })
+      const ref = { sessionId, messageId: saved.answer.id }
+      dispatch({ type: 'answered', answerId, response, seconds, saved: ref })
       onSaved(saved.session)
     } catch (error) {
       dispatch({ type: 'failed', answerId, error: errorText(error, t.unexpectedError) })
@@ -72,7 +73,8 @@ export function useChat({ selectedIds, ensureSession, onSaved }: ChatOptions) {
       if (response === null) {
         throw new Error(t.unexpectedError)
       }
-      dispatch({ type: 'extracted', answerId, response, seconds })
+      const ref = { sessionId, messageId: saved.answer.id }
+      dispatch({ type: 'extracted', answerId, response, seconds, saved: ref })
       onSaved(saved.session)
     } catch (error) {
       dispatch({ type: 'failed', answerId, error: errorText(error, t.unexpectedError) })
