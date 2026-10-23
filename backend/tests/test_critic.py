@@ -45,6 +45,38 @@ def test_sentences_are_split_without_breaking_on_page_numbers() -> None:
     ]
 
 
+def test_citations_after_the_final_full_stop_belong_to_the_sentence() -> None:
+    """The Writer sometimes cites after the full stop: "... 1,200. [S2]"."""
+    answer = checked("The monthly fee is USD 1,200.00. [S2][S1]")
+
+    sentences = split_sentences(answer)
+
+    assert [(s.text, s.cited) for s in sentences] == [("The monthly fee is USD 1,200.00.", True)]
+
+
+def test_citations_after_a_full_stop_inside_the_answer_stay_with_their_sentence() -> None:
+    answer = checked("The notice is 30 days. [S1] The fee is USD 1200. [S2] It is fair.")
+
+    sentences = split_sentences(answer)
+
+    assert [(s.text, s.cited) for s in sentences] == [
+        ("The notice is 30 days.", True),
+        ("The fee is USD 1200.", True),
+        ("It is fair.", False),
+    ]
+
+
+def test_a_sentence_without_citation_before_a_cited_one_is_still_reported(fake_llm) -> None:
+    fake_llm.replies.append('{"unsupported": []}')
+    answer = checked("This seems quite short. The notice period is 30 days. [S1]")
+
+    review = Critic(fake_llm).review_answer(answer, PASSAGES)
+
+    assert review.issues == [
+        Issue("uncited_sentence", "code", "no citation", "This seems quite short.")
+    ]
+
+
 def test_numbers_are_compared_without_separators_or_leading_zeros() -> None:
     assert numbers_in("USD 1,200 within 07 days, rate 4.5") == {"1200", "7", "4.5"}
 

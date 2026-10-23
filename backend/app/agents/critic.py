@@ -55,6 +55,9 @@ _DATE_FORMATS = ("%d %B %Y", "%d %b %Y", "%B %d, %Y", "%b %d, %Y", "%Y-%m-%d", "
 # A citation is replaced by this marker before splitting: "p. 4." would
 # otherwise end a sentence, and the page number would count as a number.
 _CITATION_MARK = "\u0000"
+# Citations written after the end of their sentence ("... 30 days. [S1]"):
+# moved before the punctuation, so they stay with the sentence they cite.
+_CITATIONS_AFTER_END = re.compile(r"([.!?])((?:\s*\u0000)+)")
 _MIN_WORDS_FOR_CITATION = 3  # "Yes." alone does not need a citation
 
 
@@ -103,6 +106,7 @@ def split_sentences(answer: CitationResult) -> list[Sentence]:
     displays = sorted({citation.display for citation in answer.citations}, key=len, reverse=True)
     for display in displays:
         text = text.replace(display, _CITATION_MARK)
+    text = _CITATIONS_AFTER_END.sub(r"\2\1", text)
     sentences = []
     for part in _SENTENCE_END.split(text.strip()):
         cited = _CITATION_MARK in part
