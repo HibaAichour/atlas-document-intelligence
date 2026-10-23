@@ -7,6 +7,7 @@ from fastapi import APIRouter, FastAPI
 
 from app.api.ask import router as ask_router
 from app.api.documents import router as documents_router
+from app.api.export import router as export_router
 from app.api.search import router as search_router
 from app.api.sessions import router as sessions_router
 from app.core.config import get_settings
@@ -54,6 +55,7 @@ api_router.include_router(documents_router)
 api_router.include_router(search_router)
 api_router.include_router(ask_router)
 api_router.include_router(sessions_router)
+api_router.include_router(export_router)
 
 # Routes must be declared on the router before it is included in the app.
 app.include_router(api_router)
