@@ -82,16 +82,17 @@ Cocher les cases au fur et à mesure. Durée totale estimée : 38 à 50 jours de
 - **Fin** : les scénarios de démo fonctionnent en français et en anglais
 
 ## Étape 11 : Tests et mini-évaluation (2 à 3 jours)
-- [ ] Scénario 1 : passages envoyés au Writer (garder ceux proches du meilleur score), avant la vidéo
-- [ ] Tests unitaires des composants clés
-- [ ] Jeu de 15 à 20 questions avec réponses attendues (FR et EN)
-- [ ] Script de score
+- [x] Scénario 1 : passages envoyés au Writer (écart de 0,05 au meilleur score ; « 30 days » en anglais : limite du 3B, vidéo en ligne)
+- [x] Tests unitaires des composants clés (React Testing Library : Critic, extraction, chat)
+- [x] Jeu de 15 à 20 questions avec réponses attendues (FR et EN) : 21 questions et 2 extractions
+- [x] Script de score (noté par le code, résultats dans eval/results.json)
 - **Fin** : score affiché
 
 ## Étape 12 : Déploiement (2 à 3 jours)
 - [ ] Docker de production
 - [ ] Déploiement Railway ou HF Spaces avec LLM externe
 - [ ] Documents de démo préchargés
+- [ ] Évaluation en ligne (run_eval) et scénario 1 avec gpt-oss-20b
 - **Fin** : lien public fonctionnel
 
 ## Étape 13 : README et vidéo (2 à 3 jours)
