@@ -1,0 +1,254 @@
+{
+  "version": 1,
+  "description": "ATLAS V1 evaluation set: questions on the four fictional demo documents, in English and French, with what a right answer must and must not contain, the pages that hold the answer, and the expected values of two extractions. Scored by backend/scripts/run_eval.py (code checks only, no LLM judge). Several questions were also used to tune the threshold and the gap (step 11), so the set is not independent of the settings.",
+  "documents": [
+    "service_agreement.pdf",
+    "invoice_HDS-INV-2026-0042.pdf",
+    "quarterly_review_HDS_Q2_2026.pptx",
+    "compte_rendu_copil_HDS_2026-07.pdf"
+  ],
+  "questions": [
+    {
+      "id": "notice-en",
+      "language": "en",
+      "question": "What is the termination notice period?",
+      "expected": ["60 days", "60-day"],
+      "forbidden": ["30 days", "30-day"],
+      "pages": [{"file": "service_agreement.pdf", "pages": [4]}],
+      "note": "Demo scenario 1. 30 days is the time to remedy a breach (Article 4.4), not a notice period; qwen2.5:3b often presents it as one (step 11, probe_margin and probe_clauses)."
+    },
+    {
+      "id": "notice-fr",
+      "language": "fr",
+      "question": "Quel est le préavis de résiliation ?",
+      "expected": ["60 jours", "60 days"],
+      "forbidden": ["30 jours", "30 days"],
+      "pages": [{"file": "service_agreement.pdf", "pages": [4]}],
+      "note": "Scenario 1 in French, English contract. The Critic's model check often flags this right answer (false alarm)."
+    },
+    {
+      "id": "start-en",
+      "language": "en",
+      "question": "When does the agreement start?",
+      "expected": ["1 March 2026", "March 1, 2026"],
+      "forbidden": [],
+      "pages": [{"file": "service_agreement.pdf", "pages": [1]}],
+      "note": "The Effective Date (1 March 2026), not the signature date (15 February 2026)."
+    },
+    {
+      "id": "monthly-fee-fr",
+      "language": "fr",
+      "question": "Quel est le montant de la redevance mensuelle ?",
+      "expected": ["12 500", "12,500", "12500"],
+      "forbidden": [],
+      "pages": [
+        {"file": "service_agreement.pdf", "pages": [3]},
+        {"file": "quarterly_review_HDS_Q2_2026.pptx", "pages": [5]},
+        {"file": "invoice_HDS-INV-2026-0042.pdf", "pages": [1]}
+      ],
+      "note": "French question on the English contract."
+    },
+    {
+      "id": "late-interest-fr",
+      "language": "fr",
+      "question": "Quel est le taux d'intérêt en cas de retard de paiement ?",
+      "expected": ["1,5", "1.5"],
+      "forbidden": [],
+      "pages": [
+        {"file": "service_agreement.pdf", "pages": [3]},
+        {"file": "invoice_HDS-INV-2026-0042.pdf", "pages": [1]}
+      ],
+      "note": "Both the contract (Article 3.4) and the scanned invoice hold the answer."
+    },
+    {
+      "id": "invoiced-q2-en",
+      "language": "en",
+      "question": "How much was invoiced in Q2 2026?",
+      "expected": ["45,370", "45 370", "45370"],
+      "forbidden": [],
+      "pages": [
+        {"file": "quarterly_review_HDS_Q2_2026.pptx", "pages": [2, 5]},
+        {"file": "compte_rendu_copil_HDS_2026-07.pdf", "pages": [1]}
+      ],
+      "note": "Demo export scenario."
+    },
+    {
+      "id": "availability-may-fr",
+      "language": "fr",
+      "question": "Quelle était la disponibilité de la plateforme en mai 2026 ?",
+      "expected": ["99,38", "99.38"],
+      "forbidden": [],
+      "pages": [{"file": "quarterly_review_HDS_Q2_2026.pptx", "pages": [3, 6]}],
+      "note": "The model tends to cite slide 2, which does not hold 99.38% (the Critic flags it as an unsupported number)."
+    },
+    {
+      "id": "credit-may-en",
+      "language": "en",
+      "question": "What service credit was granted for May 2026?",
+      "expected": ["625"],
+      "forbidden": [],
+      "pages": [
+        {"file": "quarterly_review_HDS_Q2_2026.pptx", "pages": [6]},
+        {"file": "compte_rendu_copil_HDS_2026-07.pdf", "pages": [1]}
+      ],
+      "note": "Refused by the model (NOT_FOUND) with bge-m3 at step 11, with or without the gap."
+    },
+    {
+      "id": "credit-may-fr",
+      "language": "fr",
+      "question": "Quel est le montant de l'avoir accordé pour le mois de mai ?",
+      "expected": ["625"],
+      "forbidden": [],
+      "pages": [
+        {"file": "compte_rendu_copil_HDS_2026-07.pdf", "pages": [1]},
+        {"file": "quarterly_review_HDS_Q2_2026.pptx", "pages": [6]}
+      ],
+      "note": "test_document.docx used to rank first in the native index; limited to the demo documents here."
+    },
+    {
+      "id": "marseille-fr",
+      "language": "fr",
+      "question": "Combien coûte le raccordement de l'entrepôt de Marseille ?",
+      "expected": ["17 100", "17,100", "17100"],
+      "forbidden": [],
+      "pages": [{"file": "compte_rendu_copil_HDS_2026-07.pdf", "pages": [2, 3]}],
+      "note": "French question on the French minutes."
+    },
+    {
+      "id": "marseille-en",
+      "language": "en",
+      "question": "How much does connecting the Marseille warehouse cost?",
+      "expected": ["17,100", "17 100", "17100"],
+      "forbidden": [],
+      "pages": [{"file": "compte_rendu_copil_HDS_2026-07.pdf", "pages": [2, 3]}],
+      "note": "Cross-lingual: English question, French minutes."
+    },
+    {
+      "id": "certificates-fr",
+      "language": "fr",
+      "question": "Qui doit mettre en place l'alerte d'expiration des certificats ?",
+      "expected": ["Lefèvre", "Lefevre"],
+      "forbidden": [],
+      "pages": [{"file": "compte_rendu_copil_HDS_2026-07.pdf", "pages": [3]}],
+      "note": "The answer is a row of the action table on page 3, which is not in the top 5 of the search."
+    },
+    {
+      "id": "outage-en",
+      "language": "en",
+      "question": "What caused the outage in May 2026?",
+      "expected": ["storage"],
+      "forbidden": [],
+      "pages": [
+        {"file": "quarterly_review_HDS_Q2_2026.pptx", "pages": [6]},
+        {"file": "compte_rendu_copil_HDS_2026-07.pdf", "pages": [2]}
+      ],
+      "note": "A storage failure in the Frankfurt region, on 14 May 2026."
+    },
+    {
+      "id": "governing-law-fr",
+      "language": "fr",
+      "question": "Quel droit s'applique au contrat ?",
+      "expected": ["Angleterre", "England"],
+      "forbidden": [],
+      "pages": [{"file": "service_agreement.pdf", "pages": [6]}],
+      "note": "Not used to tune any setting. The laws of England and Wales (Article 7.1); the Client is organised under the laws of Illinois (page 1)."
+    },
+    {
+      "id": "invoice-total-en",
+      "language": "en",
+      "question": "What is the total amount of invoice HDS-INV-2026-0042?",
+      "expected": ["15,950", "15 950", "15950"],
+      "forbidden": [],
+      "pages": [
+        {"file": "invoice_HDS-INV-2026-0042.pdf", "pages": [1]},
+        {"file": "quarterly_review_HDS_Q2_2026.pptx", "pages": [5]}
+      ],
+      "note": "Not used to tune any setting. The invoice is a scan read by OCR."
+    },
+    {
+      "id": "ceo-salary-en",
+      "language": "en",
+      "question": "What is the CEO's salary?",
+      "expected": null,
+      "forbidden": [],
+      "pages": [],
+      "note": "Demo scenario 2: refused by the threshold, without calling the model."
+    },
+    {
+      "id": "ceo-salary-fr",
+      "language": "fr",
+      "question": "Quel est le salaire du PDG ?",
+      "expected": null,
+      "forbidden": [],
+      "pages": [],
+      "note": "Scenario 2 in French."
+    },
+    {
+      "id": "revenue-en",
+      "language": "en",
+      "question": "What was Orion Freight's revenue in Q2 2026?",
+      "expected": null,
+      "forbidden": [],
+      "pages": [],
+      "note": "Absent but close to the documents: 45,370 is what Orion paid Helix, not its revenue. The model answers it, cited, and the Critic does not always flag it."
+    },
+    {
+      "id": "revenue-fr",
+      "language": "fr",
+      "question": "Quel est le chiffre d'affaires d'Orion au deuxième trimestre 2026 ?",
+      "expected": null,
+      "forbidden": [],
+      "pages": [],
+      "note": "Same trap in French."
+    },
+    {
+      "id": "july-incidents-en",
+      "language": "en",
+      "question": "How many critical incidents were there in July 2026?",
+      "expected": null,
+      "forbidden": [],
+      "pages": [],
+      "note": "Absent but close: the review covers April to June, the minutes the incidents of May."
+    },
+    {
+      "id": "it-budget-fr",
+      "language": "fr",
+      "question": "Quel est le budget informatique 2027 d'Orion ?",
+      "expected": null,
+      "forbidden": [],
+      "pages": [],
+      "note": "Absent but close to the documents."
+    }
+  ],
+  "extractions": [
+    {
+      "id": "invoice",
+      "file": "invoice_HDS-INV-2026-0042.pdf",
+      "fields": {
+        "invoice_number": ["HDS-INV-2026-0042"],
+        "invoice_date": ["1 April 2026"],
+        "due_date": ["1 May 2026"],
+        "total_amount": ["15,950", "15950"],
+        "currency": ["USD", "US dollar"],
+        "vendor": ["Helix Data Services"],
+        "customer": ["Orion Freight"]
+      },
+      "note": "Demo scenario 3: scanned invoice, read by OCR."
+    },
+    {
+      "id": "contract",
+      "file": "service_agreement.pdf",
+      "fields": {
+        "agreement_number": ["HDS-2026-014"],
+        "provider": ["Helix Data Services"],
+        "client": ["Orion Freight"],
+        "effective_date": ["1 March 2026"],
+        "initial_term": ["24 months"],
+        "convenience_notice": ["60 days"],
+        "non_renewal_notice": ["90 days"],
+        "governing_law": ["England and Wales"]
+      },
+      "note": "The effective date is not the signature date (15 February 2026); the convenience notice is not the 30-day remedy period."
+    }
+  ]
+}
