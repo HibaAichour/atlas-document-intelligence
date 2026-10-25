@@ -83,7 +83,9 @@ function show(response = RESPONSE, t = en, onOpenSource = vi.fn()) {
 }
 
 function row(container: HTMLElement, label: string): HTMLTableRowElement {
-  const header = [...container.querySelectorAll('th[scope="row"]')].find(
+  // Array.from rather than [...list]: some editors check with a TypeScript
+  // version that cannot spread a NodeList under this project's settings.
+  const header = Array.from(container.querySelectorAll('th[scope="row"]')).find(
     (cell) => cell.textContent === label,
   )
   expect(header).toBeDefined()
