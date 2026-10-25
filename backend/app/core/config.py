@@ -33,14 +33,16 @@ class Settings(BaseSettings):
 
     # Embeddings
     embedding_provider: ProviderName = "ollama"
-    embedding_model: str = "nomic-embed-text"
+    # bge-m3 (multilingual, chosen at step 10 bis with scripts/probe_embeddings.py):
+    # a French question finds an English passage and the other way round.
+    embedding_model: str = "bge-m3"
     embedding_base_url: str = "http://127.0.0.1:11434"
     embedding_api_key: SecretStr | None = None
-    # Task prefixes expected by some models. nomic-embed-text was trained with
-    # these two; set both to "" for a model that uses no prefix. Changing them
-    # (or the model) requires re-indexing every document.
-    embedding_document_prefix: str = "search_document: "
-    embedding_query_prefix: str = "search_query: "
+    # Task prefixes expected by some models. bge-m3 uses none; nomic-embed-text
+    # needs "search_document: " and "search_query: ". Changing them (or the
+    # model) requires re-indexing every document.
+    embedding_document_prefix: str = ""
+    embedding_query_prefix: str = ""
     # Number of texts sent in one embedding request.
     embedding_batch_size: int = Field(default=32, ge=1, le=512)
 
@@ -53,13 +55,14 @@ class Settings(BaseSettings):
     retrieval_top_k: int = Field(default=5, ge=1, le=20)
     # Relevance threshold (cosine similarity). A question whose passages all
     # score below it is refused without calling the LLM, and only passages at
-    # or above it are given to the Writer. Calibrated at step 6 on the demo
-    # contract with nomic-embed-text: the passages that answer a question
-    # scored 0.645 or more, off-topic questions 0.454 to 0.541. Absent but
-    # related questions (0.613 to 0.638) pass and are refused by the Writer
-    # (NOT_FOUND). Recalibrate with "python -m scripts.probe_scores" whenever
-    # the embedding model changes.
-    retrieval_min_score: float = Field(default=0.6, ge=0.0, le=1.0)
+    # or above it are given to the Writer. Measured at step 10 bis on the four
+    # demo documents with bge-m3, in English, French and across both: the
+    # passages that answer a question (top 5) scored 0.464 or more, off-topic
+    # questions 0.262 to 0.409. Absent but related questions (0.46 to 0.64)
+    # pass and are refused by the Writer (NOT_FOUND). The threshold depends on
+    # the model: recalibrate with "python -m scripts.probe_scores" whenever
+    # the embedding model changes (nomic-embed-text used 0.6).
+    retrieval_min_score: float = Field(default=0.44, ge=0.0, le=1.0)
 
     # Critic: besides its code checks (citations, numbers), it asks the model
     # which sentences no passage supports. That costs about 3 to 5 s more per

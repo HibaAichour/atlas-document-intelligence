@@ -8,7 +8,13 @@ from app.core.config import Settings
 
 def test_defaults_run_locally_with_ollama(monkeypatch: pytest.MonkeyPatch) -> None:
     """Without any configuration, ATLAS targets the local Ollama models."""
-    for name in ("LLM_PROVIDER", "LLM_MODEL", "EMBEDDING_PROVIDER", "EMBEDDING_MODEL"):
+    for name in (
+        "LLM_PROVIDER",
+        "LLM_MODEL",
+        "EMBEDDING_PROVIDER",
+        "EMBEDDING_MODEL",
+        "RETRIEVAL_MIN_SCORE",
+    ):
         monkeypatch.delenv(name, raising=False)
 
     settings = Settings(_env_file=None)
@@ -16,7 +22,9 @@ def test_defaults_run_locally_with_ollama(monkeypatch: pytest.MonkeyPatch) -> No
     assert settings.llm_provider == "ollama"
     assert settings.llm_model == "qwen2.5:3b"
     assert settings.embedding_provider == "ollama"
-    assert settings.embedding_model == "nomic-embed-text"
+    assert settings.embedding_model == "bge-m3"
+    # Calibrated for bge-m3, whose similarity scores are lower than nomic's.
+    assert settings.retrieval_min_score == 0.44
     assert settings.llm_api_key is None
 
 

@@ -25,7 +25,7 @@ def test_default_settings_build_ollama_providers() -> None:
     assert llm.model == "qwen2.5:3b"
     assert llm.num_ctx == 4096
     assert isinstance(embedder, OllamaEmbeddingProvider)
-    assert embedder.model == "nomic-embed-text"
+    assert embedder.model == "bge-m3"
 
 
 def test_openai_compatible_settings_build_hosted_providers() -> None:

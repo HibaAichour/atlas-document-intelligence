@@ -89,22 +89,26 @@ def test_batch_size_must_be_positive() -> None:
         Embedder(RecordingProvider(), batch_size=0)
 
 
-def test_default_settings_use_the_nomic_prefixes() -> None:
+def test_default_settings_use_no_prefix_for_bge_m3(monkeypatch: pytest.MonkeyPatch) -> None:
+    for name in ("EMBEDDING_DOCUMENT_PREFIX", "EMBEDDING_QUERY_PREFIX"):
+        monkeypatch.delenv(name, raising=False)
+
     settings = Settings(_env_file=None)
-    assert settings.embedding_document_prefix == "search_document: "
-    assert settings.embedding_query_prefix == "search_query: "
+
+    assert settings.embedding_document_prefix == ""
+    assert settings.embedding_query_prefix == ""
     assert settings.embedding_batch_size == 32
 
 
-def test_prefixes_can_be_disabled_with_environment_variables(
+def test_nomic_prefixes_can_be_set_with_environment_variables(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("EMBEDDING_DOCUMENT_PREFIX", "")
-    monkeypatch.setenv("EMBEDDING_QUERY_PREFIX", "")
+    monkeypatch.setenv("EMBEDDING_DOCUMENT_PREFIX", "search_document: ")
+    monkeypatch.setenv("EMBEDDING_QUERY_PREFIX", "search_query: ")
     provider = RecordingProvider()
 
     embedder = Embedder.from_settings(provider, Settings(_env_file=None))
     embedder.embed_documents(["Chunk."])
     embedder.embed_query("Question?")
 
-    assert provider.calls == [["Chunk."], ["Question?"]]
+    assert provider.calls == [["search_document: Chunk."], ["search_query: Question?"]]
