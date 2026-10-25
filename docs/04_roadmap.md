@@ -73,15 +73,16 @@ Cocher les cases au fur et à mesure. Durée totale estimée : 38 à 50 jours de
 - **Fin** : fichiers propres générés
 
 ## Étape 10 bis : Bilingue FR/EN (3 à 5 jours)
-- [ ] Interface : dictionnaire français, sélecteur de langue, choix mémorisé
-- [ ] Messages du backend (erreurs, refus) dans la langue choisie
-- [ ] Agents : réponses, extractions et vérifications dans la langue de l'utilisateur
-- [ ] Modèle d'embedding multilingue (RAM mesurée), ré-indexation, nouveau calibrage du seuil
-- [ ] Document de démo en français
-- [ ] Export Word et PowerPoint traduit
+- [x] Interface : dictionnaire français, sélecteur de langue, choix mémorisé
+- [x] Messages du backend (erreurs, refus) dans la langue choisie
+- [x] Agents : réponses, extractions et vérifications dans la langue de l'utilisateur
+- [x] Modèle d'embedding multilingue (RAM mesurée), ré-indexation, nouveau calibrage du seuil
+- [x] Document de démo en français
+- [x] Export Word et PowerPoint traduit
 - **Fin** : les scénarios de démo fonctionnent en français et en anglais
 
 ## Étape 11 : Tests et mini-évaluation (2 à 3 jours)
+- [ ] Scénario 1 : passages envoyés au Writer (garder ceux proches du meilleur score), avant la vidéo
 - [ ] Tests unitaires des composants clés
 - [ ] Jeu de 15 à 20 questions avec réponses attendues (FR et EN)
 - [ ] Script de score
