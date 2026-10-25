@@ -67,4 +67,5 @@ def get_orchestrator(
         DocumentAnalyst(llm),
         Extractor(llm),
         min_score=settings.retrieval_min_score,
+        max_gap=settings.retrieval_max_gap,
     )

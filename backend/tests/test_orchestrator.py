@@ -12,7 +12,7 @@ import pytest
 from app.agents.analyst import DocumentAnalyst
 from app.agents.critic import Critic
 from app.agents.extractor import Extractor
-from app.agents.orchestrator import ASK_PLAN, Orchestrator
+from app.agents.orchestrator import ASK_PLAN, Orchestrator, relevant_passages
 from app.agents.writer import Writer
 from app.db.repositories import DocumentRepository
 from app.llm.base import LLMError
@@ -74,7 +74,13 @@ WEAK = make_passage("c3", 7, "The office is located in Paris.", 0.40)
 
 
 def make_orchestrator(
-    passages, fake_llm, min_score: float = 0.5, *, down: bool = False, critic_model: bool = False
+    passages,
+    fake_llm,
+    min_score: float = 0.5,
+    *,
+    max_gap: float = 1.0,
+    down: bool = False,
+    critic_model: bool = False,
 ):
     """An Orchestrator on fixed passages. The Critic's model check is off unless
     asked, so each test scripts only the Writer's reply."""
@@ -86,6 +92,7 @@ def make_orchestrator(
         DocumentAnalyst(fake_llm),
         Extractor(fake_llm),
         min_score=min_score,
+        max_gap=max_gap,
         clock=StepClock(),
     )
     return orchestrator, retriever
@@ -155,6 +162,50 @@ def test_only_passages_above_the_threshold_reach_the_writer(fake_llm) -> None:
     assert result.status == "answered"
     assert result.best_score == pytest.approx(0.81)
     assert result.trace[0].summary == "2 of 3 passages kept (threshold 0.60, best 0.81)"
+
+
+def test_only_passages_near_the_best_score_reach_the_writer(fake_llm) -> None:
+    fake_llm.replies.append("The notice period is 30 days [S1].")
+    close = make_passage("c4", 4, "Notice must be sent by email and courier.", 0.78)
+    orchestrator, _ = make_orchestrator(
+        [NOTICE, close, START, WEAK], fake_llm, min_score=0.5, max_gap=0.05
+    )
+
+    result = orchestrator.ask(REPOSITORY, QUESTION, top_k=5)
+
+    prompt = fake_llm.calls[0].messages[1].content
+    assert NOTICE.text in prompt
+    assert close.text in prompt  # 0.78 is within 0.05 of 0.81
+    assert START.text not in prompt  # 0.62 is above the threshold but far from the best
+    assert result.status == "answered"
+    assert result.best_score == pytest.approx(0.81)
+    assert result.trace[0].summary == "2 of 4 passages kept (threshold 0.50, gap 0.05, best 0.81)"
+
+
+def test_the_gap_never_turns_a_threshold_refusal_into_an_answer(fake_llm) -> None:
+    orchestrator, _ = make_orchestrator([WEAK], fake_llm, min_score=0.5, max_gap=0.05)
+
+    result = orchestrator.ask(REPOSITORY, QUESTION, top_k=5)
+
+    assert result.refusal_reason == "no_relevant_passages"
+    assert fake_llm.calls == []
+    assert result.trace[0].summary == "0 of 1 passages kept (threshold 0.50, gap 0.05, best 0.40)"
+
+
+def test_relevant_passages() -> None:
+    passages = [NOTICE, START, WEAK]  # 0.81, 0.62, 0.40
+    assert relevant_passages(passages, 0.5) == [NOTICE, START]  # no gap by default
+    assert relevant_passages(passages, 0.5, max_gap=1.0) == [NOTICE, START]
+    assert relevant_passages(passages, 0.5, max_gap=0.05) == [NOTICE]
+    assert relevant_passages(passages, 0.5, max_gap=0.19) == [NOTICE, START]
+    assert relevant_passages(passages, 0.9, max_gap=0.05) == []
+    assert relevant_passages([], 0.5, max_gap=0.05) == []
+
+
+def test_a_passage_exactly_at_the_gap_is_kept() -> None:
+    best = make_passage("a", 1, "a", 0.60)
+    edge = make_passage("b", 1, "b", 0.55)
+    assert relevant_passages([best, edge], 0.44, max_gap=0.05) == [best, edge]
 
 
 def test_a_score_equal_to_the_threshold_is_kept(fake_llm) -> None:

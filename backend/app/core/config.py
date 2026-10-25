@@ -63,6 +63,15 @@ class Settings(BaseSettings):
     # the model: recalibrate with "python -m scripts.probe_scores" whenever
     # the embedding model changes (nomic-embed-text used 0.6).
     retrieval_min_score: float = Field(default=0.44, ge=0.0, le=1.0)
+    # Gap to the best score: only the passages above the threshold AND within
+    # this distance of the best one are given to the Writer. With bge-m3 the
+    # scores are close, so the threshold alone lets the whole top 5 through.
+    # Measured at step 11 (python -m scripts.probe_margin): with 0.05, no right
+    # passage is lost on the 53 questions of probe_scores, the Writer gets 2.9
+    # passages instead of 4.9 on average, its answers are unchanged on 11
+    # questions and arrive about 2.5 times faster. 0.03 lost a table passage.
+    # Set it to 1 to keep every passage above the threshold.
+    retrieval_max_gap: float = Field(default=0.05, ge=0.0, le=1.0)
 
     # Critic: besides its code checks (citations, numbers), it asks the model
     # which sentences no passage supports. That costs about 3 to 5 s more per

@@ -1,5 +1,7 @@
 """Tests for the application settings."""
 
+from typing import Any
+
 import pytest
 from pydantic import ValidationError
 
@@ -14,6 +16,7 @@ def test_defaults_run_locally_with_ollama(monkeypatch: pytest.MonkeyPatch) -> No
         "EMBEDDING_PROVIDER",
         "EMBEDDING_MODEL",
         "RETRIEVAL_MIN_SCORE",
+        "RETRIEVAL_MAX_GAP",
     ):
         monkeypatch.delenv(name, raising=False)
 
@@ -25,6 +28,8 @@ def test_defaults_run_locally_with_ollama(monkeypatch: pytest.MonkeyPatch) -> No
     assert settings.embedding_model == "bge-m3"
     # Calibrated for bge-m3, whose similarity scores are lower than nomic's.
     assert settings.retrieval_min_score == 0.44
+    # Only the passages near the best one reach the Writer (measured at step 11).
+    assert settings.retrieval_max_gap == 0.05
     assert settings.llm_api_key is None
 
 
@@ -50,3 +55,13 @@ def test_unknown_provider_is_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
 
     with pytest.raises(ValidationError):
         Settings(_env_file=None)
+
+def test_the_gap_can_be_turned_off_and_is_bounded(monkeypatch: pytest.MonkeyPatch) -> None:
+    """RETRIEVAL_MAX_GAP=1 keeps every passage above the threshold; values outside 0..1 fail."""
+    no_env_file: dict[str, Any] = {"_env_file": None}  # a private option mypy does not know
+    monkeypatch.setenv("RETRIEVAL_MAX_GAP", "1")
+    assert Settings(**no_env_file).retrieval_max_gap == 1.0
+
+    monkeypatch.setenv("RETRIEVAL_MAX_GAP", "-0.1")
+    with pytest.raises(ValidationError):
+        Settings(**no_env_file)

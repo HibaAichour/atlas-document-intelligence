@@ -66,6 +66,28 @@ EXTRACT_PLAN = Plan(
 )
 PLANS: dict[Mode, Plan] = {"ask": ASK_PLAN, "extract": EXTRACT_PLAN}
 
+# Rounding errors must not drop a passage that sits exactly at the gap.
+_GAP_TOLERANCE = 1e-9
+
+
+def relevant_passages(
+    passages: Sequence[RetrievedPassage], min_score: float, max_gap: float = 1.0
+) -> list[RetrievedPassage]:
+    """The passages given to the Writer, in the order received (best first).
+
+    A passage is kept when its score reaches the threshold and is within
+    max_gap of the best score. With bge-m3 the scores are close together, so
+    the threshold alone lets the whole top 5 through; the gap keeps only the
+    passages near the best one (fewer distractors, shorter prompts). A gap of
+    1 or more keeps every passage above the threshold. The best passage is
+    always kept, so the gap never turns an answer into a refusal.
+    """
+    above = [passage for passage in passages if passage.score >= min_score]
+    if not above or max_gap >= 1.0:
+        return above
+    best = max(passage.score for passage in above)
+    return [p for p in above if p.score >= best - max_gap - _GAP_TOLERANCE]
+
 
 @dataclass(slots=True)
 class _AskState:
@@ -190,6 +212,7 @@ class Orchestrator:
         extractor: Extractor,
         *,
         min_score: float,
+        max_gap: float = 1.0,
         clock: Callable[[], float] = time.perf_counter,
     ) -> None:
         self._retriever = retriever
@@ -198,6 +221,7 @@ class Orchestrator:
         self._analyst = analyst
         self._extractor = extractor
         self._min_score = min_score
+        self._max_gap = max_gap
         self._clock = clock
         self._ask_steps: dict[str, Callable[[_AskState, StepNote], None]] = {
             "retrieval": self._retrieve,
@@ -309,13 +333,15 @@ class Orchestrator:
             state.repository, state.question, state.top_k, state.document_ids
         )
         state.best_score = max((passage.score for passage in passages), default=None)
-        # Only passages above the threshold reach the model: fewer distractors
-        # for a small model, and no LLM call at all when nothing is relevant.
-        state.passages = [p for p in passages if p.score >= self._min_score]
+        # Only passages above the threshold, and near the best one, reach the
+        # model: fewer distractors for a small model, and no LLM call at all
+        # when nothing is relevant.
+        state.passages = relevant_passages(passages, self._min_score, self._max_gap)
         best = "none" if state.best_score is None else f"{state.best_score:.2f}"
+        gap = f", gap {self._max_gap:.2f}" if self._max_gap < 1.0 else ""
         note.summary = (
             f"{len(state.passages)} of {len(passages)} passages kept "
-            f"(threshold {self._min_score:.2f}, best {best})"
+            f"(threshold {self._min_score:.2f}{gap}, best {best})"
         )
         if not state.passages:
             state.refuse("no_relevant_passages", "no passage above the relevance threshold")
