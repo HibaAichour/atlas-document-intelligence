@@ -54,6 +54,18 @@
   font-size: 0.8125rem;
 }
 
+/* Language selector and backend status, on the right of the header. */
+.header-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.language-switch {
+  align-self: center;
+}
+
 .health {
   display: flex;
   align-items: center;

@@ -169,7 +169,9 @@ interface MessageViewProps {
 
 function MessageView({ message, openSource, onOpenSource, t }: MessageViewProps) {
   if (message.role === 'user') {
-    return <p className="message-question">{message.text}</p>
+    // An extraction request is written in the language of the moment.
+    const text = message.extractOf !== undefined ? t.extractRequest(message.extractOf) : message.text
+    return <p className="message-question">{text}</p>
   }
   if (message.status === 'pending') {
     return (

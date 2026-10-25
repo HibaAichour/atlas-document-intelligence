@@ -28,20 +28,28 @@ const EXTRACTION: ExtractResponse = {
 }
 
 describe('exportUrl', () => {
-  it('points to the export route of the saved message', () => {
+  it('points to the export route of the saved message, in English by default', () => {
     const saved = { sessionId: 'f21a002e', messageId: 'a4a295bd' }
 
     expect(exportUrl(saved, 'docx')).toBe(
-      '/api/sessions/f21a002e/messages/a4a295bd/export?format=docx',
+      '/api/sessions/f21a002e/messages/a4a295bd/export?format=docx&lang=en',
     )
     expect(exportUrl(saved, 'pptx')).toBe(
-      '/api/sessions/f21a002e/messages/a4a295bd/export?format=pptx',
+      '/api/sessions/f21a002e/messages/a4a295bd/export?format=pptx&lang=en',
+    )
+  })
+
+  it('asks for the file in the language of the interface', () => {
+    const saved = { sessionId: 'f21a002e', messageId: 'a4a295bd' }
+
+    expect(exportUrl(saved, 'docx', 'fr')).toBe(
+      '/api/sessions/f21a002e/messages/a4a295bd/export?format=docx&lang=fr',
     )
   })
 
   it('escapes the ids', () => {
     expect(exportUrl({ sessionId: 'a/b', messageId: 'c d' }, 'docx')).toBe(
-      '/api/sessions/a%2Fb/messages/c%20d/export?format=docx',
+      '/api/sessions/a%2Fb/messages/c%20d/export?format=docx&lang=en',
     )
   })
 })

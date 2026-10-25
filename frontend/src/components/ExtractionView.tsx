@@ -62,10 +62,12 @@ export function ExtractionView({
             {extraction.fields.map((field) => {
               const issues = fieldIssues(response.review, field.name)
               const isOpen = isOpenFieldSource(openSource, answerId, field.name)
+              // The backend sends the English label; the dictionary may translate it.
+              const label = t.fieldLabels[field.name] ?? field.label
               return (
                 <tr key={field.name} className={issues.length > 0 ? 'field-flagged' : undefined}>
                   <th scope="row" className="field-label">
-                    {field.label}
+                    {label}
                   </th>
                   <td className="field-value">
                     {field.value === null ? (
@@ -85,13 +87,13 @@ export function ExtractionView({
                         type="button"
                         className={isOpen ? 'citation citation-open' : 'citation'}
                         aria-pressed={isOpen}
-                        aria-label={t.openFieldSource(field.label, field.page)}
+                        aria-label={t.openFieldSource(label, field.page)}
                         onClick={() =>
                           onOpenSource({
                             kind: 'field',
                             answerId,
                             field: field.name,
-                            label: field.label,
+                            label,
                             value: field.value ?? '',
                             citations: field.source === null ? [] : [field.source],
                           })

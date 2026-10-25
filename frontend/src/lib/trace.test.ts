@@ -26,6 +26,8 @@ describe('formatDuration', () => {
   it('writes seconds with one decimal above', () => {
     expect(formatDuration(1000)).toBe('1.0 s')
     expect(formatDuration(3306)).toBe('3.3 s')
+    // The decimal separator follows the language of the interface.
+    expect(formatDuration(3306, 'fr-FR')).toBe('3,3 s')
   })
 })
 

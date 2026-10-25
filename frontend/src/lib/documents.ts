@@ -15,7 +15,7 @@ export function usableIds(documents: readonly DocumentInfo[]): string[] {
 /** The short line shown under a file name in the document list. */
 export function describeDocument(document: DocumentInfo, t: Messages): string {
   if (document.status === 'failed') {
-    return document.error ?? t.unreadableFile
+    return document.error !== null ? t.documentFailed(document.error) : t.unreadableFile
   }
   if (document.status !== 'ready') {
     return t.processing

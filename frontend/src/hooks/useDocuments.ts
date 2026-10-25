@@ -1,10 +1,10 @@
 // State of the document list: loading, upload, and which documents questions use.
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 
 import { listDocuments, uploadDocument } from '../api/client'
 import type { DocumentInfo } from '../api/types'
-import { errorText } from '../lib/errors'
+import { apiErrorText } from '../lib/errors'
 import { useMessages } from '../lib/i18n'
 import { selectedIdsOf, selectUploaded, toggleDocument, type Selection } from '../lib/selection'
 
@@ -20,6 +20,12 @@ export function useDocuments() {
   const [selection, setSelection] = useState<Selection>('all')
   const [isUploading, setIsUploading] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
+  // The texts of the current language, read by the request started at load
+  // time: changing the language must not load the list again.
+  const tRef = useRef(t)
+  useLayoutEffect(() => {
+    tRef.current = t
+  })
 
   // Computed from the selection and the list, so a selection restored before
   // the list has loaded is applied as soon as the documents arrive.
@@ -35,11 +41,11 @@ export function useDocuments() {
       })
       .catch((error: unknown) => {
         if (controller.signal.aborted) return
-        setListError(errorText(error, t.unexpectedError))
+        setListError(apiErrorText(error, 'listDocuments', tRef.current))
         setListState('error')
       })
     return () => controller.abort()
-  }, [t])
+  }, [])
 
   async function upload(file: File): Promise<void> {
     setIsUploading(true)
@@ -50,7 +56,7 @@ export function useDocuments() {
       setDocuments((current) => [document, ...current.filter((item) => item.id !== document.id)])
       setSelection((current) => selectUploaded(current, document))
     } catch (error) {
-      setUploadError(errorText(error, t.unexpectedError))
+      setUploadError(apiErrorText(error, 'upload', t))
     } finally {
       setIsUploading(false)
     }

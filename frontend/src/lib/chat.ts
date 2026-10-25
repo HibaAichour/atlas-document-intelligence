@@ -25,7 +25,9 @@ export interface ExtractResponse {
 }
 
 export type ChatMessage =
-  | { id: number; role: 'user'; text: string }
+  // extractOf: for an extraction request, the file name, so the request is
+  // written in the language shown at the time (text is kept as a fallback).
+  | { id: number; role: 'user'; text: string; extractOf?: string }
   // The mode chooses the waiting text: a question or an extraction.
   | { id: number; role: 'assistant'; status: 'pending'; mode: MessageMode }
   // seconds is null for a result restored from a saved session: the time was
@@ -50,7 +52,14 @@ export type ChatMessage =
   | { id: number; role: 'assistant'; status: 'error'; error: string }
 
 export type ChatAction =
-  | { type: 'asked'; questionId: number; answerId: number; question: string; mode: MessageMode }
+  | {
+      type: 'asked'
+      questionId: number
+      answerId: number
+      question: string
+      mode: MessageMode
+      extractOf?: string // the file of an extraction request
+    }
   | {
       type: 'answered'
       answerId: number
@@ -68,12 +77,28 @@ export type ChatAction =
   | { type: 'failed'; answerId: number; error: string }
   | { type: 'loaded'; messages: ChatMessage[] }
 
+/** A request of the user; extractOf is set only for an extraction. */
+function userMessage(id: number, text: string, extractOf: string | undefined): ChatMessage {
+  return extractOf === undefined ? { id, role: 'user', text } : { id, role: 'user', text, extractOf }
+}
+
+/** The text the backend saves for an extraction request (app/api/sessions.py),
+ * always in English: the file name is read back from it. */
+export const EXTRACT_REQUEST_PREFIX = 'Extract the key fields of '
+
+/** The file of a saved extraction request, or null if the text has another form. */
+export function extractedFilename(content: string): string | null {
+  if (!content.startsWith(EXTRACT_REQUEST_PREFIX)) return null
+  const filename = content.slice(EXTRACT_REQUEST_PREFIX.length).trim()
+  return filename === '' ? null : filename
+}
+
 export function chatReducer(messages: ChatMessage[], action: ChatAction): ChatMessage[] {
   switch (action.type) {
     case 'asked':
       return [
         ...messages,
-        { id: action.questionId, role: 'user', text: action.question },
+        userMessage(action.questionId, action.question, action.extractOf),
         { id: action.answerId, role: 'assistant', status: 'pending', mode: action.mode },
       ]
     case 'answered':
@@ -184,7 +209,8 @@ export function restoreMessages(
     const saved = { sessionId, messageId: message.id }
     if (message.role === 'user') {
       lastRequest = message.content
-      restored.push({ id, role: 'user', text: message.content })
+      const filename = message.mode === 'extract' ? extractedFilename(message.content) : null
+      restored.push(userMessage(id, message.content, filename ?? undefined))
       continue
     }
     // An assistant message that cannot be shown as a result is skipped.

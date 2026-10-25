@@ -14,7 +14,7 @@ import {
   toExtractResponse,
   type ChatMessage,
 } from '../lib/chat'
-import { errorText } from '../lib/errors'
+import { apiErrorText } from '../lib/errors'
 import { useMessages } from '../lib/i18n'
 
 interface ChatOptions {
@@ -52,7 +52,7 @@ export function useChat({ selectedIds, ensureSession, onSaved }: ChatOptions) {
       dispatch({ type: 'answered', answerId, response, seconds, saved: ref })
       onSaved(saved.session)
     } catch (error) {
-      dispatch({ type: 'failed', answerId, error: errorText(error, t.unexpectedError) })
+      dispatch({ type: 'failed', answerId, error: apiErrorText(error, 'ask', t) })
     }
   }
 
@@ -60,9 +60,17 @@ export function useChat({ selectedIds, ensureSession, onSaved }: ChatOptions) {
   async function extract(document: DocumentInfo): Promise<void> {
     const requestId = nextId.current++
     const answerId = nextId.current++
-    // The backend saves the same text; it is written here to show it at once.
+    // Shown at once; the interface writes it again from the file name in the
+    // language of the moment (the backend saves it in English).
     const request = t.extractRequest(document.filename)
-    dispatch({ type: 'asked', questionId: requestId, answerId, question: request, mode: 'extract' })
+    dispatch({
+      type: 'asked',
+      questionId: requestId,
+      answerId,
+      question: request,
+      mode: 'extract',
+      extractOf: document.filename,
+    })
 
     const start = performance.now()
     try {
@@ -77,7 +85,7 @@ export function useChat({ selectedIds, ensureSession, onSaved }: ChatOptions) {
       dispatch({ type: 'extracted', answerId, response, seconds, saved: ref })
       onSaved(saved.session)
     } catch (error) {
-      dispatch({ type: 'failed', answerId, error: errorText(error, t.unexpectedError) })
+      dispatch({ type: 'failed', answerId, error: apiErrorText(error, 'extract', t) })
     }
   }
 

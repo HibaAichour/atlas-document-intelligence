@@ -12,15 +12,20 @@ export interface TraceStep {
 }
 
 /** "< 1 ms" for a step faster than a millisecond (code checks), "4 ms" under
- * one second, "3.3 s" above. "0 ms" would suggest that the step did nothing. */
-export function formatDuration(milliseconds: number): string {
+ * one second, "3.3 s" above ("3,3 s" in French: the decimal separator follows
+ * the locale). "0 ms" would suggest that the step did nothing. */
+export function formatDuration(milliseconds: number, locale = 'en-GB'): string {
   if (milliseconds < 1) {
     return '< 1 ms'
   }
   if (milliseconds < 1000) {
     return `${Math.round(milliseconds)} ms`
   }
-  return `${(milliseconds / 1000).toFixed(1)} s`
+  const seconds = new Intl.NumberFormat(locale, {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  }).format(milliseconds / 1000)
+  return `${seconds} s`
 }
 
 /** The steps of a trace in the order they ran, with their labels and durations. */
@@ -29,6 +34,6 @@ export function traceSteps(trace: readonly AgentRun[], t: Messages): TraceStep[]
     key: `${index}-${run.name}`,
     label: t.agentNames[run.name] ?? run.name,
     status: run.status,
-    duration: run.status === 'skipped' ? null : formatDuration(run.duration_ms),
+    duration: run.status === 'skipped' ? null : formatDuration(run.duration_ms, t.dateLocale),
   }))
 }

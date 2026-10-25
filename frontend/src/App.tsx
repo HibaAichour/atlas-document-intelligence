@@ -6,6 +6,7 @@ import type { SessionDetail } from './api/types'
 import { ChatPanel } from './components/ChatPanel'
 import { DocumentsPanel } from './components/DocumentsPanel'
 import { HealthStatus } from './components/HealthStatus'
+import { LanguageSwitch } from './components/LanguageSwitch'
 import { SessionsPanel } from './components/SessionsPanel'
 import { SourcePanel } from './components/SourcePanel'
 import { useChat } from './hooks/useChat'
@@ -46,7 +47,10 @@ function App() {
             <span className="brand-tagline">{t.brandTagline}</span>
           </span>
         </div>
-        <HealthStatus />
+        <div className="header-tools">
+          <LanguageSwitch />
+          <HealthStatus />
+        </div>
       </header>
 
       <div className={openSource ? 'workspace workspace-with-source' : 'workspace'}>

@@ -5,7 +5,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 import { ApiError, createSession, getSession, listSessions } from '../api/client'
 import type { SessionDetail, SessionSummary } from '../api/types'
-import { errorText } from '../lib/errors'
+import { apiErrorText } from '../lib/errors'
 import { useMessages } from '../lib/i18n'
 import { readCurrentSessionId, saveCurrentSessionId, upsertSession } from '../lib/sessions'
 import type { ListState } from './useDocuments'
@@ -27,8 +27,12 @@ export function useSessions(onOpened: OnSessionOpened) {
 
   // Always call the latest onOpened, even from the request started at load time.
   const onOpenedRef = useRef(onOpened)
+  // The texts of the current language, read by the requests started at load
+  // time: changing the language must not run them again.
+  const tRef = useRef(t)
   useLayoutEffect(() => {
     onOpenedRef.current = onOpened
+    tRef.current = t
   })
 
   useEffect(() => {
@@ -42,7 +46,7 @@ export function useSessions(onOpened: OnSessionOpened) {
       })
       .catch((error: unknown) => {
         if (controller.signal.aborted) return
-        setListError(errorText(error, t.unexpectedError))
+        setListError(apiErrorText(error, 'listSessions', tRef.current))
         setListState('error')
       })
 
@@ -59,7 +63,8 @@ export function useSessions(onOpened: OnSessionOpened) {
             saveCurrentSessionId(null)
           } else {
             // Backend down: keep the id, so the next reload can try again.
-            setOpenError(`${t.sessionOpenFailed} ${errorText(error, t.unexpectedError)}`)
+            const texts = tRef.current
+            setOpenError(`${texts.sessionOpenFailed} ${apiErrorText(error, 'openSession', texts)}`)
           }
         })
         .finally(() => {
@@ -67,7 +72,7 @@ export function useSessions(onOpened: OnSessionOpened) {
         })
     }
     return () => controller.abort()
-  }, [initialId, t])
+  }, [initialId])
 
   /** Open a saved session: its messages and documents replace the current ones. */
   async function open(sessionId: string): Promise<void> {
@@ -80,7 +85,7 @@ export function useSessions(onOpened: OnSessionOpened) {
       saveCurrentSessionId(session.id)
       onOpened(session)
     } catch (error) {
-      setOpenError(`${t.sessionOpenFailed} ${errorText(error, t.unexpectedError)}`)
+      setOpenError(`${t.sessionOpenFailed} ${apiErrorText(error, 'openSession', t)}`)
     } finally {
       setIsOpening(false)
     }

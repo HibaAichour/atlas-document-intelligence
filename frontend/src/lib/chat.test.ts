@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import type { AgentRun, AskResponse, Citation, Extraction, StoredMessage } from '../api/types'
 import {
   chatReducer,
+  extractedFilename,
   isWaiting,
   nextMessageId,
   restoreMessages,
@@ -112,15 +113,22 @@ describe('chatReducer', () => {
     expect(isWaiting(messages)).toBe(true)
   })
 
-  it('remembers that a pending answer is an extraction', () => {
+  it('remembers that a pending answer is an extraction, and the file of the request', () => {
     const messages = chatReducer([], {
       type: 'asked',
       questionId: 1,
       answerId: 2,
-      question: 'Extract the key fields of invoice.pdf',
+      question: 'Extraire les champs clés de invoice.pdf',
       mode: 'extract',
+      extractOf: 'invoice.pdf',
     })
 
+    expect(messages[0]).toEqual({
+      id: 1,
+      role: 'user',
+      text: 'Extraire les champs clés de invoice.pdf',
+      extractOf: 'invoice.pdf',
+    })
     expect(messages[1]).toEqual({ id: 2, role: 'assistant', status: 'pending', mode: 'extract' })
     expect(isWaiting(messages)).toBe(true)
   })
@@ -213,6 +221,17 @@ describe('nextMessageId', () => {
     ]
 
     expect(nextMessageId(messages)).toBe(8)
+  })
+})
+
+describe('extractedFilename', () => {
+  it('reads the file back from the request saved by the backend', () => {
+    expect(extractedFilename('Extract the key fields of invoice_HDS-INV-2026-0042.pdf')).toBe(
+      'invoice_HDS-INV-2026-0042.pdf',
+    )
+    expect(extractedFilename('Extract the key fields of ')).toBeNull()
+    expect(extractedFilename('Extract')).toBeNull()
+    expect(extractedFilename('What is the notice period?')).toBeNull()
   })
 })
 
@@ -339,7 +358,7 @@ describe('restoreMessages', () => {
     )
 
     expect(restored).toEqual([
-      { id: 1, role: 'user', text: EXTRACT_RESPONSE.request },
+      { id: 1, role: 'user', text: EXTRACT_RESPONSE.request, extractOf: 'invoice.pdf' },
       {
         id: 2,
         role: 'assistant',
@@ -373,6 +392,16 @@ describe('restoreMessages', () => {
       expect(refusal.response.refusal_reason).toBe('unsupported_document')
       expect(refusal.response.extraction).toBeNull()
     }
+  })
+
+  it('keeps a question as it is, even if it looks like an extraction request', () => {
+    const restored = restoreMessages(
+      [stored(0, { role: 'user', mode: 'ask', content: 'Extract the key fields of x.pdf' })],
+      SESSION_ID,
+    )
+
+    expect(restored).toEqual([{ id: 1, role: 'user', text: 'Extract the key fields of x.pdf' }])
+    expect('extractOf' in restored[0]).toBe(false)
   })
 
   it('skips a saved extraction that lost its fields', () => {
