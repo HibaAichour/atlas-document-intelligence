@@ -48,8 +48,14 @@ Reply {"unsupported": []} when every sentence is supported."""
 
 # A sentence ends with . ! or ? followed by spaces.
 _SENTENCE_END = re.compile(r"(?<=[.!?])\s+")
-# A number, with optional thousands or decimal separators: 30, 1,200, 4.5
-_NUMBER = re.compile(r"\d+(?:[.,]\d+)*")
+# A number, in English or French format: 30, 1,200, 4.5, 99,38, or with
+# thousands separated by spaces (normal, no-break or narrow no-break), as in
+# French: "45 370,00". The grouped form is tried first, so it stays one number.
+_GROUPED_NUMBER = r"\d{1,3}(?:[ \u00a0\u202f]\d{3})+(?:,\d+)?(?!\d)"
+_NUMBER = re.compile(rf"{_GROUPED_NUMBER}|\d+(?:[.,]\d+)*")
+# Groups of three digits after one kind of separator: "12,500" or "1.500".
+_THOUSANDS = re.compile(r"\d{1,3}(?:[.,]\d{3})+")
+_GROUP_SPACES = re.compile(r"[ \u00a0\u202f]")
 # Date formats accepted for a date field ("1 April 2026", "April 1, 2026", ...).
 _DATE_FORMATS = ("%d %B %Y", "%d %b %Y", "%B %d, %Y", "%b %d, %Y", "%Y-%m-%d", "%d/%m/%Y")
 # A citation is replaced by this marker before splitting: "p. 4." would
@@ -117,17 +123,62 @@ def split_sentences(answer: CitationResult) -> list[Sentence]:
     return sentences
 
 
+def _canonical(integer: str, decimals: str = "") -> str:
+    """One written form per value: "07" is "7", "15950.00" is "15950"."""
+    integer = integer.lstrip("0") or "0"
+    decimals = decimals.rstrip("0")
+    return f"{integer}.{decimals}" if decimals else integer
+
+
+def number_readings(token: str) -> frozenset[str]:
+    """The values a written number can stand for, in English or French format.
+
+    "45 370,00" and "45,370.00" are 45370; "99,38" is 99.38. "12,500" is
+    ambiguous (12500 in English, 12.5 in French), and so is "1.500": both
+    readings are kept, so that neither language gives a false alarm.
+    """
+    if _GROUP_SPACES.search(token):
+        integer, _, decimals = _GROUP_SPACES.sub("", token).partition(",")
+        return frozenset({_canonical(integer, decimals)})
+    if "," in token and "." in token:
+        # Both separators: the last one marks the decimals ("45,370.00", "45.370,00").
+        last = max(token.rfind(","), token.rfind("."))
+        integer = re.sub(r"[.,]", "", token[:last])
+        return frozenset({_canonical(integer, token[last + 1 :])})
+    separator = "," if "," in token else "." if "." in token else None
+    if separator is None:
+        return frozenset({_canonical(token)})
+    parts = token.split(separator)
+    readings = set()
+    if _THOUSANDS.fullmatch(token):
+        readings.add(_canonical("".join(parts)))
+    if len(parts) == 2:
+        readings.add(_canonical(parts[0], parts[1]))
+    # Anything else ("1.2.3"): the digits alone.
+    return frozenset(readings or {_canonical("".join(parts))})
+
+
+def number_tokens(text: str) -> list[tuple[str, frozenset[str]]]:
+    """Each number as written in the text, with its possible values."""
+    return [(token, number_readings(token)) for token in _NUMBER.findall(text)]
+
+
 def numbers_in(text: str) -> set[str]:
-    """The numbers written in a text, compared the same way: "1,200" is "1200",
-    "07" is "7", and "15,950.00" is "15950" (like 15950.0 sent by the model)."""
-    found = set()
-    for number in _NUMBER.findall(text):
-        digits = number.replace(",", "")
-        integer, _, decimals = digits.partition(".")
-        integer = integer.lstrip("0") or "0"
-        decimals = decimals.rstrip("0")
-        found.add(f"{integer}.{decimals}" if decimals else integer)
+    """Every value the numbers of a text can stand for: "1,200" gives 1200
+    (English) and 1.2 (French), "45 370,00" and "15,950.00" give 45370 and 15950."""
+    found: set[str] = set()
+    for _, readings in number_tokens(text):
+        found |= readings
     return found
+
+
+def unsupported_numbers(text: str, known: set[str]) -> list[str]:
+    """The numbers of a text, as written, of which no reading is known."""
+    missing: list[str] = []
+    for token, readings in number_tokens(text):
+        if readings.isdisjoint(known) and token not in missing:
+            missing.append(token)
+    return missing
 
 
 def comparable(text: str) -> str:
@@ -151,8 +202,7 @@ def appears_in(value: str, text: str, *, amount: bool) -> bool:
     """True if the value is written in the text: the same words, or for an
     amount, the same numbers ("USD 15,950.00" is found in "Total 15950.00")."""
     if amount:
-        numbers = numbers_in(value)
-        return bool(numbers) and numbers <= numbers_in(text)
+        return bool(number_tokens(value)) and not unsupported_numbers(value, numbers_in(text))
     return comparable(value) in comparable(text)
 
 
@@ -228,7 +278,7 @@ class Critic:
         sources = [c.passage for c in answer.citations] or list(passages)
         known = numbers_in(" ".join(passage.text for passage in sources))
         for sentence in sentences:
-            missing = sorted(numbers_in(sentence.text) - known)
+            missing = unsupported_numbers(sentence.text, known)
             if missing:
                 issues.append(
                     Issue(

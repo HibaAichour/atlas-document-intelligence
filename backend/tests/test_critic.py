@@ -2,7 +2,18 @@
 
 import json
 
-from app.agents.critic import SYSTEM_PROMPT, Critic, Issue, numbers_in, split_sentences
+import pytest
+
+from app.agents.critic import (
+    SYSTEM_PROMPT,
+    Critic,
+    Issue,
+    appears_in,
+    number_readings,
+    numbers_in,
+    split_sentences,
+    unsupported_numbers,
+)
 from app.rag.citations import resolve_citations
 from app.retrieval.retriever import RetrievedPassage
 
@@ -78,7 +89,88 @@ def test_a_sentence_without_citation_before_a_cited_one_is_still_reported(fake_l
 
 
 def test_numbers_are_compared_without_separators_or_leading_zeros() -> None:
-    assert numbers_in("USD 1,200 within 07 days, rate 4.5") == {"1200", "7", "4.5"}
+    # "1,200" is 1200 in English and 1.2 in French: both readings are kept.
+    assert numbers_in("USD 1,200 within 07 days, rate 4.5") == {"1200", "1.2", "7", "4.5"}
+
+
+@pytest.mark.parametrize(
+    ("written", "values"),
+    [
+        ("45,370.00", {"45370"}),  # English
+        ("45 370,00", {"45370"}),  # French, normal space
+        ("45\u00a0370,00", {"45370"}),  # French, no-break space
+        ("45\u202f370,00", {"45370"}),  # French, narrow no-break space
+        ("45.370,00", {"45370"}),  # French, dot for thousands
+        ("1 234 567,50", {"1234567.5"}),
+        ("99.38", {"99.38"}),
+        ("99,38", {"99.38"}),
+        ("1,5", {"1.5"}),
+        ("15950.00", {"15950"}),
+        ("12,500", {"12500", "12.5"}),  # ambiguous
+        ("1.500", {"1.5", "1500"}),  # ambiguous
+        ("1,200,000", {"1200000"}),
+        ("07", {"7"}),
+        ("1.2.3", {"123"}),
+    ],
+)
+def test_number_readings_in_english_and_french(written: str, values: set[str]) -> None:
+    assert number_readings(written) == frozenset(values)
+
+
+def test_a_french_amount_is_one_number() -> None:
+    assert numbers_in("Le total s'élève à 45 370,00 USD.") == {"45370"}
+    # Separate numbers stay separate: a space only joins groups of three digits.
+    assert numbers_in("le 14 mai 2026, 4 h 37 min") == {"14", "2026", "4", "37"}
+
+
+def test_unsupported_numbers_keep_the_written_form() -> None:
+    known = numbers_in("The fee is USD 12,500 and the rate 99.38%.")
+
+    assert unsupported_numbers("99,38 % et 12 500 USD", known) == []
+    assert unsupported_numbers("45 370,00 USD, puis 45 370,00", known) == ["45 370,00"]
+
+
+def test_amounts_appear_in_either_format() -> None:
+    assert appears_in("USD 15,950.00", "Total 15 950,00 USD", amount=True)
+    assert appears_in("15 950,00", "Total USD 15,950.00", amount=True)
+    assert not appears_in("USD 15,590.00", "Total USD 15,950.00", amount=True)
+    assert not appears_in("no number", "Total USD 15,950.00", amount=True)
+
+
+def _passage(text: str) -> RetrievedPassage:
+    return RetrievedPassage(
+        chunk_id="c1",
+        document_id="d1",
+        filename="review.pptx",
+        page_number=2,
+        position=0,
+        text=text,
+        score=0.7,
+    )
+
+
+def test_a_french_answer_from_an_english_passage_is_not_flagged(fake_llm) -> None:
+    # Measured at step 10 bis: "99,38%" written from "99.38%" was flagged.
+    fake_llm.replies.append('{"unsupported": []}')
+    passages = [_passage("May 2026 | 99.38% | 99.5% | 2 | 1 h 25 min")]
+    answer = resolve_citations(
+        "La disponibilité de la plateforme en mai 2026 était de 99,38%. [S1]", passages
+    )
+
+    review = Critic(fake_llm).review_answer(answer, passages)
+
+    assert review.issues == []
+
+
+def test_a_wrong_number_in_french_is_still_flagged(fake_llm) -> None:
+    fake_llm.replies.append('{"unsupported": []}')
+    passages = [_passage("Total invoiced in Q2 2026: USD 45,370.00.")]
+    answer = resolve_citations("Le total facturé au T2 2026 est de 45 730,00 USD [S1].", passages)
+
+    review = Critic(fake_llm).review_answer(answer, passages)
+
+    assert codes(review) == [("unsupported_number", "code")]
+    assert review.issues[0].message == "not found in the cited passages: 45 730,00"
 
 
 def test_a_supported_answer_is_ok_and_the_model_sees_numbered_sentences(fake_llm) -> None:
