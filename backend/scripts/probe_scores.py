@@ -12,6 +12,9 @@ another document ranks first.
 Usage, from backend/ while the server is running:
     python -m scripts.probe_scores
     python -m scripts.probe_scores --set review --top-k 5
+    python -m scripts.probe_scores --set minutes       (French questions, French minutes)
+    python -m scripts.probe_scores --set contract-fr   (French questions, English contract)
+    python -m scripts.probe_scores --set minutes-en    (English questions, French minutes)
     python -m scripts.probe_scores --url http://localhost:8080 --top-k 5
 """
 
@@ -60,10 +63,49 @@ REVIEW_QUESTIONS: list[tuple[str, Expected]] = [
     ("What is the CEO's salary?", None),
 ]
 
+# French minutes, questions in French.
+MINUTES_FR_QUESTIONS: list[tuple[str, Expected]] = [
+    ("Quelle est la cause de la panne de la plateforme en mai ?", 2),
+    ("Pourquoi les données de l'entrepôt du Havre ont-elles été interrompues ?", 2),
+    ("Combien coûte le raccordement de l'entrepôt de Marseille ?", (2, 3)),
+    ("Quand est prévue la mise en service de l'entrepôt de Marseille ?", 3),
+    ("Qui doit mettre en place l'alerte d'expiration des certificats ?", 3),
+    ("Quand a lieu le prochain comité de pilotage ?", 3),
+    ("Quel est le montant de l'avoir accordé pour le mois de mai ?", 1),
+    ("Qui représentait Orion Freight France au comité ?", 1),
+    ("Quel est le budget informatique 2027 d'Orion ?", None),
+    ("Quel est le salaire du PDG ?", None),
+    ("Quelle est la capitale de l'Italie ?", None),
+]
+
+# English contract, questions in French (cross-lingual retrieval).
+CONTRACT_FR_QUESTIONS: list[tuple[str, Expected]] = [
+    ("Quand le contrat commence-t-il ?", 1),
+    ("Quel est l'engagement de disponibilité de la plateforme ?", 2),
+    ("Quel est le montant de la redevance mensuelle ?", 3),
+    ("Quel est le préavis de résiliation ?", 4),
+    ("Où sont stockées les données du client ?", 5),
+    ("Quel droit s'applique au contrat ?", 6),
+    ("Quel est le salaire du PDG ?", None),
+    ("Le contrat contient-il une clause de non-concurrence ?", None),
+]
+
+# French minutes, questions in English (cross-lingual retrieval).
+MINUTES_EN_QUESTIONS: list[tuple[str, Expected]] = [
+    ("What caused the interruption of the Le Havre warehouse data?", 2),
+    ("How much does connecting the Marseille warehouse cost?", (2, 3)),
+    ("When is the next steering committee meeting?", 3),
+    ("What is Orion's IT budget for 2027?", None),
+]
+
+
 # Set name -> (file name of the target document, questions).
 QUESTION_SETS: dict[str, tuple[str, list[tuple[str, Expected]]]] = {
     "contract": ("service_agreement.pdf", CONTRACT_QUESTIONS),
     "review": ("quarterly_review_HDS_Q2_2026.pptx", REVIEW_QUESTIONS),
+    "minutes": ("compte_rendu_copil_HDS_2026-07.pdf", MINUTES_FR_QUESTIONS),
+    "contract-fr": ("service_agreement.pdf", CONTRACT_FR_QUESTIONS),
+    "minutes-en": ("compte_rendu_copil_HDS_2026-07.pdf", MINUTES_EN_QUESTIONS),
 }
 
 
