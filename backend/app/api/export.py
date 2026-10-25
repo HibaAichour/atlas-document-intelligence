@@ -8,7 +8,14 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from app.api.schemas import MessageOut
 from app.api.sessions import DbSession, get_session_or_404
 from app.db.repositories import SessionRepository
-from app.export.content import ExportFormat, NotExportableError, build_export, download_name
+from app.export.content import (
+    EXPORT_TEXTS,
+    ExportFormat,
+    ExportLanguage,
+    NotExportableError,
+    build_export,
+    download_name,
+)
 from app.export.docx_export import render_docx
 from app.export.pptx_export import render_pptx
 
@@ -39,8 +46,12 @@ def export_message(
     db: DbSession,
     now: ExportTime,
     file_format: Annotated[ExportFormat, Query(alias="format")],
+    language: Annotated[ExportLanguage, Query(alias="lang")] = "en",
 ) -> Response:
     """Return the answer or extraction as a .docx or .pptx file, sources included.
+
+    lang (en or fr) sets the fixed texts of the file: headings, verdict, field
+    labels, date. The question, the answer and the sources stay as written.
 
     The file is built from the saved message, in memory: no LLM call and
     nothing written on disk. A question or a refusal cannot be exported (409).
@@ -62,7 +73,7 @@ def export_message(
         else None
     )
     try:
-        content = build_export(message, question, chat_session.title, now)
+        content = build_export(message, question, chat_session.title, now, EXPORT_TEXTS[language])
     except NotExportableError as error:
         raise HTTPException(status.HTTP_409_CONFLICT, NOT_EXPORTABLE) from error
 

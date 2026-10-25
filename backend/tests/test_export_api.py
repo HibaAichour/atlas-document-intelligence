@@ -92,11 +92,15 @@ def save_exchange(
         return chat_session.id, asked.id, answered.id
 
 
-def export(client: TestClient, session_id: str, message_id: str, file_format: str):
-    return client.get(
-        f"/api/sessions/{session_id}/messages/{message_id}/export",
-        params={"format": file_format},
-    )
+def export(
+    client: TestClient,
+    session_id: str,
+    message_id: str,
+    file_format: str,
+    language: str | None = None,
+):
+    params = {"format": file_format} | ({"lang": language} if language else {})
+    return client.get(f"/api/sessions/{session_id}/messages/{message_id}/export", params=params)
 
 
 def test_an_answer_exports_as_word(client: TestClient, fixed_time: None, fake_llm) -> None:
@@ -201,3 +205,61 @@ def test_a_missing_or_unknown_format_gives_422(client: TestClient) -> None:
 
     assert client.get(url).status_code == 422
     assert client.get(url, params={"format": "pdf"}).status_code == 422
+
+
+def test_an_answer_exports_in_french(client: TestClient, fixed_time: None) -> None:
+    session_id, _, answer_id = save_exchange(QUESTION, ANSWERED)
+
+    response = export(client, session_id, answer_id, "docx", "fr")
+
+    assert response.status_code == 200
+    # The file name stays the same in both languages (no accents in the header).
+    assert 'filename="ATLAS_answer_2026-10-23.docx"' in response.headers["content-disposition"]
+    document = docx.Document(io.BytesIO(response.content))
+    lines = [paragraph.text for paragraph in document.paragraphs]
+    assert "Réponse tirée de vos documents" in lines
+    # What was asked and answered is kept as written.
+    assert QUESTION in lines
+    assert ANSWER in lines
+    assert "23 octobre 2026, 19:20 UTC" in document.sections[0].footer.paragraphs[0].text
+
+
+def test_an_extraction_exports_in_french_as_powerpoint(
+    client: TestClient, fixed_time: None
+) -> None:
+    session_id, _, answer_id = save_exchange(
+        f"Extract the key fields of {INVOICE_FILE}", EXTRACTED, MessageMode.EXTRACT
+    )
+
+    response = export(client, session_id, answer_id, "pptx", "fr")
+
+    assert response.status_code == 200
+    presentation = Presentation(io.BytesIO(response.content))
+    texts = [
+        shape.text_frame.text
+        for slide in presentation.slides
+        for shape in slide.shapes
+        if shape.has_text_frame
+    ]
+    cells = [
+        cell.text
+        for slide in presentation.slides
+        for shape in slide.shapes
+        if shape.has_table
+        for row in shape.table.rows
+        for cell in row.cells
+    ]
+    assert f"Champs clés de {INVOICE_FILE} (facture)" in texts
+    assert "Numéro de facture" in cells
+    assert "HDS-INV-2026-0042" in cells
+
+
+def test_english_is_the_default_and_an_unknown_language_gives_422(client: TestClient) -> None:
+    session_id, _, answer_id = save_exchange(QUESTION, ANSWERED)
+
+    default = docx.Document(io.BytesIO(export(client, session_id, answer_id, "docx").content))
+    english = docx.Document(io.BytesIO(export(client, session_id, answer_id, "docx", "en").content))
+
+    assert "Answer from your documents" in [p.text for p in default.paragraphs]
+    assert [p.text for p in default.paragraphs] == [p.text for p in english.paragraphs]
+    assert export(client, session_id, answer_id, "docx", "de").status_code == 422
