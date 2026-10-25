@@ -10,6 +10,42 @@ Format : une entrée par décision, la plus récente en haut.
 - **Conséquences** : impact sur le projet, lien avec la V2
 
 ---
+## [2026-10-24] Étape 10 validée dans Docker
+- **Contexte** : l'export doit fonctionner avec le frontend compilé servi par Nginx et la base du volume Docker.
+- **Décision** : aucune modification des Dockerfiles ni de la configuration Nginx ; reconstruction avec `docker compose up -d --build`. La revue trimestrielle est téléversée dans le volume par l'interface.
+- **Alternatives écartées** : aucune.
+- **Conséquences** : scénario 4 validé sur `localhost:8080` : réponse « How much was invoiced in Q2 2026? » (USD 45,370.00, p. 5) exportée en Word, extraction de la facture exportée en PowerPoint (`ATLAS_extraction_…`), fichiers ouverts dans Pages et Keynote. Nginx transmet le fichier et l'en-tête `Content-Disposition` sans réglage. L'image `python:3.13-slim` a encore changé d'empreinte : build du backend de 13 min 25 (Tesseract 481 s, `pip install` 302 s), les images du frontend étaient en cache. Argument de plus pour la décision de l'étape 12 sur le fait de figer les images.
+
+## [2026-10-23] Interface : liens d'export sous chaque résultat
+- **Contexte** : le scénario 4 demande un bouton Exporter ; le frontend ne gardait pas l'identifiant en base des messages (identifiants locaux `position + 1`).
+- **Décision** : les messages `done` et `extracted` du `chatReducer` reçoivent `saved: SavedRef` (`sessionId`, `messageId`) : en direct, depuis `saved.answer.id` de la réponse de l'API ; pour une session relue, depuis `restoreMessages(messages, sessionId)`. `lib/export.ts` : `exportUrl`, `canExportAnswer`, `canExportExtraction` (fonctions pures testées). `components/ExportLinks.tsx` : « EXPORT ↓ Word ↓ PowerPoint », deux liens `<a href download>` vers la route d'export, sur la ligne des agents (bloc `answer-footer`, retour à la ligne si la place manque). Aucun lien sous un refus. Textes dans `lib/i18n.ts`, avec un libellé complet pour les lecteurs d'écran.
+- **Alternatives écartées** : un `fetch` puis un `Blob` téléchargé par JavaScript (état d'attente et gestion d'erreur à coder pour un export instantané) ; exporter la session entière (dérive de périmètre, refus et erreurs au milieu).
+- **Conséquences** : 100 tests frontend. Si le serveur répondait par une erreur, le navigateur téléchargerait le message d'erreur au lieu de l'afficher : peu probable, le lien n'apparaissant que sur un résultat exportable (à signaler dans le README).
+
+## [2026-10-23] Route d'export : GET, fichier construit en mémoire
+- **Contexte** : l'export doit partir du message enregistré, sources comprises, et fonctionner sur un hébergeur sans disque persistant.
+- **Décision** : `GET /api/sessions/{session_id}/messages/{message_id}/export?format=docx|pptx` (`app/api/export.py`). Le message est cherché parmi ceux de la session (`list_messages`) : session ou message inconnu, ou message d'une autre session : 404 ; question ou refus : 409 ; format absent ou inconnu : 422 (`Literal`). La question exportée est le message de l'utilisatrice qui précède. Réponse avec le type MIME du format et `Content-Disposition: attachment; filename="ATLAS_answer_2026-10-23.docx"`. Heure de génération par une dépendance (`get_export_time`), remplacée dans les tests. Aucun appel au LLM, rien n'est écrit sur le disque.
+- **Alternatives écartées** : POST avec le contenu affiché par le frontend (la base est la source de vérité, le contenu serait à revalider) ; une méthode `get_message` dans le dépôt (`list_messages` suffit pour quelques dizaines de messages).
+- **Conséquences** : 388 tests backend. Vérifié en natif avec `curl` (en-têtes et fichiers ouverts dans Pages et Keynote). L'export fonctionne même si Ollama est arrêté.
+
+## [2026-10-23] Fichiers Word et PowerPoint : un contenu commun, deux rendus
+- **Contexte** : les deux formats doivent montrer les mêmes informations, avec le style « Lagon ».
+- **Décision** : `app/export/content.py` : `build_export` transforme un `MessageOut` en `ExportContent` (titre, demande, réponse ou lignes du tableau, verdict en phrases, sources). Les textes fixes sont dans `ExportTexts` / `ENGLISH` (mois compris, pour une date identique sur le Mac et dans Docker). Les problèmes d'une extraction sont placés sous la valeur concernée ; les champs lus dans le même passage partagent une source (« Used for: … ») ; deux passages de la même page forment une source. `readable_text` reprend `readableText` du frontend, avec les mêmes cas de test. `docx_export.py` : titres turquoise, tableau, passages complets sur fond clair (`w:shd`), pied de page daté. `pptx_export.py` (16:9) : titre, réponse ou tableau avec le verdict (4 problèmes au plus, taille du texte selon la longueur), sources à 2 par diapositive, coupées à 700 caractères. Le titre de la session n'est que dans les propriétés du fichier.
+- **Alternatives écartées** : un gabarit `.dotx` / `.potx` (dérive de périmètre) ; traiter à part les lignes de tableau jointes dans les passages PPTX (l'export resterait différent du panneau Source) ; inclure la trace des agents (trop technique pour un document remis).
+- **Conséquences** : les textes du verdict existent dans le frontend et dans le backend : l'étape 10 bis ajoutera une instance `FRENCH`. Les lignes de tableau d'une diapositive apparaissent jointes dans les sources, comme dans l'interface (à signaler dans le README).
+
+## [2026-10-23] Critic : citations placées après le point final
+- **Contexte** : sur « How much was invoiced in Q2 2026? », le Writer a écrit `… 45,370.00. [S1][S2]` ; `split_sentences` coupait après le point, la phrase restait sans citation et le Critic signalait à tort `uncited_sentence` (« Certain »). Au milieu d'une réponse, la citation était attribuée à la phrase suivante.
+- **Décision** : avant le découpage, les citations qui suivent directement `.`, `!` ou `?` sont déplacées devant ce signe (`_CITATIONS_AFTER_END`). Trois tests, dont un qui vérifie qu'une phrase vraiment non citée reste signalée.
+- **Alternatives écartées** : demander au Writer de citer avant le point (un 3B ne le respecte pas toujours).
+- **Conséquences** : verdict juste sur la même question, vérifié dans l'interface. La réponse déjà enregistrée garde son ancien verdict.
+
+## [2026-10-23] Revue trimestrielle de démo et mesure des scores
+- **Contexte** : le troisième document de démo devait démontrer le parsing PPTX et une question chiffrée à exporter.
+- **Décision** : `scripts/make_demo_review.py` produit `demo_documents/quarterly_review_HDS_Q2_2026.pptx` : revue fictive du Q2 2026 (avril à juin) de Helix pour Orion, 6 diapositives (un sujet par diapositive), deux tableaux. Chiffres calculés avec `Decimal` d'après les articles 2.5, 2.6, 3.1 et 3.6 du contrat (disponibilité moyenne 99.74 %, panne de mai de 4 h 37 min, crédit de USD 625, total facturé USD 45,370.00) ; la facture d'avril est la facture de démo. Relecture par le parseur d'ATLAS à la fin du script ; dates fixes dans le fichier et dans le zip, pour un fichier identique à chaque exécution. `probe_scores` reçoit l'option `--set contract|review` et le score du bon passage (bon fichier, bonne page), même quand un autre document arrive en tête.
+- **Alternatives écartées** : une revue du Q1 (un seul mois de service, le contrat commençant le 1er mars) ; des graphiques ou des notes du présentateur (texte non extrait par le parseur).
+- **Conséquences** : avec le seuil de 0,60, le bon passage obtient 0,620 à 0,803 sur 9 questions (premier 8 fois sur 9 ; les tickets de support passent derrière l'article 2.4 du contrat). Le salaire du CEO reste refusé par le seuil (0,554). Les questions absentes mais proches du sujet passent largement le seuil (chiffre d'affaires d'Orion 0,810, incidents de juillet 0,681) : le refus dépend du Writer et du Critic. Deux cas pour le jeu d'évaluation de l'étape 11, dont le risque de répondre « 45,370 » au chiffre d'affaires d'Orion (c'est ce qu'Orion a payé).
+
 ## [2026-10-22] Étape 9 validée dans Docker
 - **Contexte** : les agents, l'extraction et le nouvel affichage doivent fonctionner avec le frontend compilé servi par Nginx et la base du volume Docker.
 - **Décision** : aucune modification des Dockerfiles ; reconstruction avec `docker compose up -d --build`. Au démarrage, `add_missing_columns` ajoute `messages.review` et `messages.extraction` à la base existante, sans erreur et sans perte des sessions. La facture de démo est téléversée dans le volume par l'interface (OCR dans le conteneur).

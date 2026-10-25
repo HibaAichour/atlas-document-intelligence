@@ -67,9 +67,9 @@ Cocher les cases au fur et à mesure. Durée totale estimée : 38 à 50 jours de
 - **Fin** : une extraction passe par Analyst, Extractor, Critic
 
 ## Étape 10 : Export Word et PowerPoint (2 à 3 jours)
-- [ ] .docx avec python-docx
-- [ ] .pptx avec python-pptx
-- [ ] Bouton Exporter, sources incluses
+- [x] .docx avec python-docx
+- [x] .pptx avec python-pptx
+- [x] Bouton Exporter, sources incluses
 - **Fin** : fichiers propres générés
 
 ## Étape 10 bis : Bilingue FR/EN (3 à 5 jours)
