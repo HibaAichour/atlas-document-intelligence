@@ -65,6 +65,55 @@ def test_openai_compatible_restores_input_order() -> None:
     assert captured["auth"] == "Bearer test-key"
 
 
+def test_openai_compatible_keeps_order_without_index() -> None:
+    # The Gemini API returns its items in input order, without an "index".
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        return httpx2.Response(
+            200,
+            json={
+                "object": "list",
+                "data": [
+                    {"object": "embedding", "embedding": [0.1, 0.2]},
+                    {"object": "embedding", "embedding": [0.3, 0.4]},
+                ],
+                "model": "gemini-embedding-001",
+            },
+        )
+
+    provider = OpenAICompatibleEmbeddingProvider(
+        OPENAI_URL, "gemini-embedding-001", client=mock_client(OPENAI_URL, handler)
+    )
+
+    assert provider.embed(["first", "second"]) == [[0.1, 0.2], [0.3, 0.4]]
+
+
+def test_openai_compatible_rejects_partial_index() -> None:
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        return httpx2.Response(
+            200,
+            json={"data": [{"index": 1, "embedding": [0.3, 0.4]}, {"embedding": [0.1, 0.2]}]},
+        )
+
+    provider = OpenAICompatibleEmbeddingProvider(
+        OPENAI_URL, "embed-model", client=mock_client(OPENAI_URL, handler)
+    )
+
+    with pytest.raises(EmbeddingError, match="with and without an index"):
+        provider.embed(["first", "second"])
+
+
+def test_openai_compatible_rejects_wrong_number_of_vectors_without_index() -> None:
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        return httpx2.Response(200, json={"data": [{"embedding": [0.1, 0.2]}]})
+
+    provider = OpenAICompatibleEmbeddingProvider(
+        OPENAI_URL, "embed-model", client=mock_client(OPENAI_URL, handler)
+    )
+
+    with pytest.raises(EmbeddingError, match="Expected 2 embeddings"):
+        provider.embed(["first", "second"])
+
+
 def test_empty_input_makes_no_request() -> None:
     def handler(request: httpx2.Request) -> httpx2.Response:
         raise AssertionError("No HTTP request expected for an empty input")

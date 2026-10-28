@@ -103,9 +103,26 @@ class OpenAICompatibleEmbeddingProvider(EmbeddingProvider):
             self._client, "/embeddings", {"model": self.model, "input": texts}, self._headers
         )
         try:
-            # Items carry an "index"; sort on it so vectors match the input order.
-            items = sorted(data["data"], key=lambda item: item["index"])
+            items = _in_input_order(data["data"])
             vectors = [list(map(float, item["embedding"])) for item in items]
         except (KeyError, TypeError, ValueError) as exc:
             raise EmbeddingError("Unexpected response format from the embedding API") from exc
         return _check_count(vectors, texts)
+
+
+def _in_input_order(items: list[Any]) -> list[Any]:
+    """Return the response items in the order of the input texts.
+
+    Most providers give each item an "index" (its position in the input), and
+    may return the items in any order. Others, such as the Gemini API, omit it
+    and return the items in input order, as the OpenAI API also guarantees.
+
+    Raises:
+        EmbeddingError: If only some items carry an index (ambiguous order).
+    """
+    with_index = sum(1 for item in items if isinstance(item, dict) and "index" in item)
+    if with_index == 0:
+        return list(items)
+    if with_index < len(items):
+        raise EmbeddingError("Embedding API returned items with and without an index")
+    return sorted(items, key=lambda item: item["index"])
