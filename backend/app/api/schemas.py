@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 from app.agents.analyst import DocumentType
 from app.agents.critic import IssueCode, IssueOrigin, Review, Verdict
 from app.agents.trace import AgentRun, StepKind, StepStatus
+from app.core.config import ProviderName
 from app.db.models import DocumentStatus, Message, MessageMode, MessageRole
 from app.db.repositories import SessionSummary
 from app.rag.answering import AnswerStatus, AnswerWarning, RefusalReason
@@ -20,6 +21,13 @@ MAX_TOP_K = 20
 QueryText = Annotated[
     str, StringConstraints(strip_whitespace=True, min_length=1, max_length=MAX_QUERY_LENGTH)
 ]
+
+
+class ConfigOut(BaseModel):
+    """What the interface needs to know about this deployment."""
+
+    demo_mode: bool  # uploads are refused (online demo)
+    llm_provider: ProviderName  # "ollama" locally, "openai_compatible" online
 
 
 class DocumentOut(BaseModel):

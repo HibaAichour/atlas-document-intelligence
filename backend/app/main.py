@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 from fastapi import APIRouter, FastAPI
 
 from app.api.ask import router as ask_router
+from app.api.config import router as config_router
 from app.api.documents import router as documents_router
 from app.api.export import router as export_router
 from app.api.search import router as search_router
@@ -13,6 +14,7 @@ from app.api.sessions import router as sessions_router
 from app.core.config import get_settings
 from app.core.providers import build_document_indexer, build_llm_provider
 from app.db.session import create_db_engine, create_session_factory, init_db, sqlite_url
+from app.frontend import mount_frontend
 
 APP_VERSION = "0.1.0"
 
@@ -51,6 +53,7 @@ def health() -> dict[str, str]:
     return {"status": "ok", "version": APP_VERSION}
 
 
+api_router.include_router(config_router)
 api_router.include_router(documents_router)
 api_router.include_router(search_router)
 api_router.include_router(ask_router)
@@ -59,3 +62,7 @@ api_router.include_router(export_router)
 
 # Routes must be declared on the router before it is included in the app.
 app.include_router(api_router)
+
+# Single container (online demo): FastAPI also serves the compiled frontend.
+# Mounted last, so that every /api route is matched before the static files.
+mount_frontend(app, get_settings().static_dir)

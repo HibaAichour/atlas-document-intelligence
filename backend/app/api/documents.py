@@ -17,6 +17,8 @@ from app.retrieval.indexing import DocumentIndexer
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
+UPLOADS_DISABLED = "Uploads are disabled in the online demo."
+
 DbSession = Annotated[Session, Depends(get_db)]
 AppSettings = Annotated[Settings, Depends(get_settings)]
 Indexer = Annotated[DocumentIndexer, Depends(get_indexer)]
@@ -30,7 +32,9 @@ def upload_document(
 ) -> DocumentOut:
     """Upload a file, extract its text and index it for search. A file that
     cannot be read or indexed is still recorded, with the status "failed"
-    and the reason."""
+    and the reason. Refused in the online demo (DEMO_MODE)."""
+    if settings.demo_mode:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, UPLOADS_DISABLED)
     try:
         document = ingest_document(db, file.file, file.filename, settings, indexer)
     except FileTooLargeError as error:

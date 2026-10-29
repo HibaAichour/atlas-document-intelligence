@@ -90,6 +90,15 @@ class Settings(BaseSettings):
     max_pages: int = 50
     max_ocr_pages: int = 10
 
+    # Online demo: uploads are refused (no accounts, so a visitor's file would be
+    # visible to every visitor, and OCR is slow on a small free server). The demo
+    # documents are prepared when the image is built (scripts/seed_demo.py).
+    demo_mode: bool = False
+    # Folder of the compiled frontend (npm run build). When set, FastAPI serves
+    # it on "/", so one container runs the whole application. Empty in
+    # development (Vite serves the frontend) and with Docker Compose (Nginx does).
+    static_dir: Path | None = None
+
 
 @lru_cache
 def get_settings() -> Settings:
