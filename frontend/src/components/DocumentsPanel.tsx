@@ -13,6 +13,8 @@ interface DocumentsPanelProps {
   listState: ListState
   listError: string | null
   selectedIds: ReadonlySet<string>
+  // False in the online demo (and while its configuration is loading).
+  uploadsAllowed: boolean
   isUploading: boolean
   uploadError: string | null
   onUpload: (file: File) => void
@@ -24,6 +26,7 @@ export function DocumentsPanel({
   listState,
   listError,
   selectedIds,
+  uploadsAllowed,
   isUploading,
   uploadError,
   onUpload,
@@ -46,22 +49,27 @@ export function DocumentsPanel({
     <aside className="documents glass" aria-label="Documents">
       <div className="documents-header">
         <h2 className="documents-title">{t.documentsTitle}</h2>
-        <button
-          type="button"
-          className="button button-primary"
-          onClick={() => inputRef.current?.click()}
-          disabled={isUploading}
-        >
-          {isUploading ? t.uploadingButton : t.uploadButton}
-        </button>
-        <input
-          ref={inputRef}
-          type="file"
-          accept={ACCEPTED_FILES}
-          hidden
-          onChange={handleFileChange}
-        />
+        {uploadsAllowed && (
+          <>
+            <button
+              type="button"
+              className="button button-primary"
+              onClick={() => inputRef.current?.click()}
+              disabled={isUploading}
+            >
+              {isUploading ? t.uploadingButton : t.uploadButton}
+            </button>
+            <input
+              ref={inputRef}
+              type="file"
+              accept={ACCEPTED_FILES}
+              hidden
+              onChange={handleFileChange}
+            />
+          </>
+        )}
       </div>
+      {!uploadsAllowed && <p className="note">{t.demoUploadsNote}</p>}
 
       {isUploading && (
         <p className="note" aria-live="polite">

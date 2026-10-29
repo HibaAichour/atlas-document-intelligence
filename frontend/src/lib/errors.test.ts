@@ -15,6 +15,8 @@ describe('apiErrorText', () => {
       [0, 'ask', en.errorUnreachable],
       [413, 'upload', en.errorFileTooLarge],
       [400, 'upload', en.errorUnsupportedFile],
+      [403, 'upload', en.errorUploadsDisabled],
+      [403, 'ask', en.errorServer(403)],
       [400, 'ask', en.errorInvalidRequest],
       [404, 'openSession', en.errorNotFound],
       [409, 'extract', en.errorDocumentNotReady],

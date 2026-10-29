@@ -10,10 +10,12 @@ import { LanguageSwitch } from './components/LanguageSwitch'
 import { SessionsPanel } from './components/SessionsPanel'
 import { SourcePanel } from './components/SourcePanel'
 import { useChat } from './hooks/useChat'
+import { useConfig } from './hooks/useConfig'
 import { useDocuments } from './hooks/useDocuments'
 import { useSessions } from './hooks/useSessions'
 import { restoreMessages } from './lib/chat'
 import type { OpenSource } from './lib/citations'
+import { uploadsAllowed } from './lib/config'
 import { useMessages } from './lib/i18n'
 import { restoredSelection } from './lib/selection'
 
@@ -22,6 +24,7 @@ function App() {
   // The citation whose passage is shown in the side panel, if any.
   const [openSource, setOpenSource] = useState<OpenSource | null>(null)
   const closeSource = useCallback(() => setOpenSource(null), [])
+  const config = useConfig()
   const documents = useDocuments()
   const sessions = useSessions(showSession)
   const chat = useChat({
@@ -71,6 +74,7 @@ function App() {
             listState={documents.listState}
             listError={documents.listError}
             selectedIds={documents.selectedIds}
+            uploadsAllowed={uploadsAllowed(config)}
             isUploading={documents.isUploading}
             uploadError={documents.uploadError}
             onUpload={(file) => void documents.upload(file)}

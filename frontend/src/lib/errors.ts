@@ -34,6 +34,9 @@ export function apiErrorText(error: unknown, operation: Operation, t: Messages):
       return t.errorUnreachable
     case 413:
       return t.errorFileTooLarge
+    case 403:
+      // The online demo refuses uploads (its button is hidden, so this is a safety net).
+      return operation === 'upload' ? t.errorUploadsDisabled : t.errorServer(error.status)
     case 400:
       return operation === 'upload' ? t.errorUnsupportedFile : t.errorInvalidRequest
     case 404:

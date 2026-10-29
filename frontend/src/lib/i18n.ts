@@ -40,6 +40,7 @@ const en = {
 
   documentsTitle: 'Documents',
   uploadButton: 'Upload a file',
+  demoUploadsNote: 'Online demo: sample documents only. Uploads are disabled.',
   uploadingButton: 'Uploading…',
   uploadingNote: 'Reading and indexing the file. A scanned document can take up to a minute.',
   loadingDocuments: 'Loading documents…',
@@ -159,6 +160,7 @@ const en = {
   // Errors of the API, written from the operation and the HTTP status.
   errorUnreachable: 'The server cannot be reached. Is the backend running?',
   errorFileTooLarge: 'The file is too large.',
+  errorUploadsDisabled: 'Uploads are disabled in the online demo.',
   errorUnsupportedFile:
     'This file cannot be read: accepted files are PDF, Word (.docx), PowerPoint (.pptx), PNG and JPG.',
   errorServiceDown: 'The language model or the search service is not responding. Is Ollama running?',
@@ -202,6 +204,8 @@ const fr: Messages = {
 
   documentsTitle: 'Documents',
   uploadButton: 'Téléverser',
+  demoUploadsNote:
+    'Démo en ligne\u00a0: documents d’exemple uniquement. Le téléversement est désactivé.',
   uploadingButton: 'Envoi…',
   uploadingNote:
     'Lecture et indexation du fichier. Un document scanné peut demander jusqu’à une minute.',
@@ -336,6 +340,7 @@ const fr: Messages = {
 
   errorUnreachable: 'Le serveur est injoignable. Le backend est-il lancé\u00a0?',
   errorFileTooLarge: 'Le fichier est trop volumineux.',
+  errorUploadsDisabled: 'Le téléversement est désactivé dans la démo en ligne.',
   errorUnsupportedFile:
     'Ce fichier ne peut pas être lu\u00a0: les fichiers acceptés sont PDF, Word (.docx), PowerPoint (.pptx), PNG et JPG.',
   errorServiceDown:

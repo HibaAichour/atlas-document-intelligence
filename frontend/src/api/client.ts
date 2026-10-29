@@ -3,6 +3,7 @@
 // forwards them to FastAPI, so the same code works in every environment.
 
 import type {
+  AppConfig,
   AskRequest,
   AskResponse,
   DocumentInfo,
@@ -92,6 +93,10 @@ function postJson(payload: unknown): RequestInit {
 
 export function getHealth(signal?: AbortSignal): Promise<HealthInfo> {
   return request<HealthInfo>('/api/health', { signal })
+}
+
+export function getConfig(signal?: AbortSignal): Promise<AppConfig> {
+  return request<AppConfig>('/api/config', { signal })
 }
 
 export function listDocuments(signal?: AbortSignal): Promise<DocumentInfo[]> {

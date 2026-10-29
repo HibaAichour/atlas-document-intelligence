@@ -20,6 +20,12 @@ export interface HealthInfo {
   version: string
 }
 
+/** How this deployment is configured (GET /api/config, ConfigOut in schemas.py). */
+export interface AppConfig {
+  demo_mode: boolean // online demo: uploads are refused
+  llm_provider: 'ollama' | 'openai_compatible'
+}
+
 export interface AskRequest {
   question: string
   top_k?: number
