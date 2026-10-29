@@ -1,0 +1,38 @@
+# Context of the production image (Dockerfile at the root of the repository).
+# The Compose images use backend/ and frontend/ as contexts, with their own
+# .dockerignore files: this one does not apply to them.
+
+# Version control, editors, documentation and evaluation data
+.git/
+.claude/
+.vscode/
+.idea/
+docs/
+eval/
+*.md
+**/.DS_Store
+
+# Dependencies, caches and build output, recreated inside the image
+**/node_modules/
+**/.venv/
+**/__pycache__/
+**/*.py[cod]
+**/.pytest_cache/
+frontend/dist/
+
+# Development-only files
+backend/tests/
+backend/requirements-dev.txt
+backend/pytest.ini
+
+# Secrets and local data must never end up in an image
+**/.env
+**/.env.*
+**/data/
+**/exports/
+
+# Docker files themselves
+Dockerfile
+**/Dockerfile
+**/.dockerignore
+docker-compose.yml
