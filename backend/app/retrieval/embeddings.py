@@ -114,15 +114,25 @@ def _in_input_order(items: list[Any]) -> list[Any]:
     """Return the response items in the order of the input texts.
 
     Most providers give each item an "index" (its position in the input), and
-    may return the items in any order. Others, such as the Gemini API, omit it
-    and return the items in input order, as the OpenAI API also guarantees.
+    may return the items in any order. The Gemini API leaves out an index equal
+    to 0, as its format omits default values: with several texts, the first
+    item has no index and the others have 1, 2, ... A missing index is
+    therefore read as 0. When no item has an index at all, the items are taken
+    in the order received, as the OpenAI API also guarantees.
 
     Raises:
-        EmbeddingError: If only some items carry an index (ambiguous order).
+        EmbeddingError: If the indices are not exactly 0 to n-1, each once
+            (two items without an index, a gap, or a value out of range).
     """
-    with_index = sum(1 for item in items if isinstance(item, dict) and "index" in item)
-    if with_index == 0:
+    if not any(isinstance(item, dict) and "index" in item for item in items):
         return list(items)
-    if with_index < len(items):
-        raise EmbeddingError("Embedding API returned items with and without an index")
-    return sorted(items, key=lambda item: item["index"])
+    found: list[object] = [
+        item.get("index", 0) if isinstance(item, dict) else None for item in items
+    ]
+    positions = [value for value in found if isinstance(value, int) and not isinstance(value, bool)]
+    if len(positions) != len(items) or sorted(positions) != list(range(len(items))):
+        raise EmbeddingError(f"Embedding API returned invalid indices: {found}")
+    ordered: list[Any] = [None] * len(items)
+    for position, item in zip(positions, items, strict=True):
+        ordered[position] = item
+    return ordered

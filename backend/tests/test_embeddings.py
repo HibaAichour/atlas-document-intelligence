@@ -87,19 +87,50 @@ def test_openai_compatible_keeps_order_without_index() -> None:
     assert provider.embed(["first", "second"]) == [[0.1, 0.2], [0.3, 0.4]]
 
 
-def test_openai_compatible_rejects_partial_index() -> None:
+def test_openai_compatible_reads_a_missing_index_as_zero() -> None:
+    # The Gemini API leaves out "index" when it is 0: the first item has none.
+    # The items are also shuffled here, to check that they are sorted.
     def handler(request: httpx2.Request) -> httpx2.Response:
         return httpx2.Response(
             200,
-            json={"data": [{"index": 1, "embedding": [0.3, 0.4]}, {"embedding": [0.1, 0.2]}]},
+            json={
+                "data": [
+                    {"object": "embedding", "index": 2, "embedding": [0.5, 0.6]},
+                    {"object": "embedding", "embedding": [0.1, 0.2]},
+                    {"object": "embedding", "index": 1, "embedding": [0.3, 0.4]},
+                ]
+            },
         )
+
+    provider = OpenAICompatibleEmbeddingProvider(
+        OPENAI_URL, "gemini-embedding-001", client=mock_client(OPENAI_URL, handler)
+    )
+
+    assert provider.embed(["first", "second", "third"]) == [[0.1, 0.2], [0.3, 0.4], [0.5, 0.6]]
+
+
+@pytest.mark.parametrize(
+    "items",
+    [
+        # Two items without an index: both would be 0.
+        [{"embedding": [0.1]}, {"embedding": [0.2]}, {"index": 1, "embedding": [0.3]}],
+        # A gap: no item at position 1.
+        [{"embedding": [0.1]}, {"index": 2, "embedding": [0.2]}],
+        # Out of range, and not an integer.
+        [{"index": 0, "embedding": [0.1]}, {"index": 5, "embedding": [0.2]}],
+        [{"index": 0, "embedding": [0.1]}, {"index": "1", "embedding": [0.2]}],
+    ],
+)
+def test_openai_compatible_rejects_invalid_indices(items: list[dict]) -> None:
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        return httpx2.Response(200, json={"data": items})
 
     provider = OpenAICompatibleEmbeddingProvider(
         OPENAI_URL, "embed-model", client=mock_client(OPENAI_URL, handler)
     )
 
-    with pytest.raises(EmbeddingError, match="with and without an index"):
-        provider.embed(["first", "second"])
+    with pytest.raises(EmbeddingError, match="invalid indices"):
+        provider.embed([f"text {number}" for number in range(len(items))])
 
 
 def test_openai_compatible_rejects_wrong_number_of_vectors_without_index() -> None:
