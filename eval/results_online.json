@@ -1,0 +1,485 @@
+{
+  "context": {
+    "label": "online",
+    "url": "http://localhost:8000",
+    "date": "2026-10-30 19:49 UTC",
+    "extractions": true,
+    "pause_seconds": 20.0,
+    "local_settings": {
+      "llm_model": "qwen2.5:3b",
+      "embedding_model": "bge-m3",
+      "retrieval_min_score": 0.44,
+      "retrieval_max_gap": 0.05,
+      "retrieval_top_k": 5
+    }
+  },
+  "summary": {
+    "questions": {
+      "en": "8 of 10 (80%)",
+      "fr": "10 of 11 (91%)",
+      "all": "18 of 21 (86%)"
+    },
+    "answers": {
+      "en": "6 of 7 (86%)",
+      "fr": "8 of 8 (100%)",
+      "all": "14 of 15 (93%)"
+    },
+    "refusals": {
+      "en": "2 of 3 (67%)",
+      "fr": "2 of 3 (67%)",
+      "all": "4 of 6 (67%)"
+    },
+    "right_and_cited": {
+      "en": "8 of 10 (80%)",
+      "fr": "10 of 11 (91%)",
+      "all": "18 of 21 (86%)"
+    },
+    "right_answers_with_right_page": "14 of 14 (100%)",
+    "answers_in_right_language": "12 of 14 (86%)",
+    "critic_wrong_answers_flagged": "1 of 3 (33%)",
+    "critic_false_alarms_on_right_well_cited_answers": "1 of 14 (7%)",
+    "critic_justified_alerts_on_right_badly_cited_answers": "-",
+    "extracted_fields_right": "15 of 15 (100%)"
+  },
+  "questions": [
+    {
+      "id": "notice-en",
+      "language": "en",
+      "question": "What is the termination notice period?",
+      "right": true,
+      "citation_right": true,
+      "answer_language": "en",
+      "refused": false,
+      "refusal_reason": null,
+      "answer": "The termination notice period is 60 days. [service_agreement.pdf, p. 4]",
+      "sources": [
+        "service_agreement.pdf p. 4"
+      ],
+      "critic": [],
+      "seconds": 5.4
+    },
+    {
+      "id": "notice-fr",
+      "language": "fr",
+      "question": "Quel est le préavis de résiliation ?",
+      "right": true,
+      "citation_right": true,
+      "answer_language": "fr",
+      "refused": false,
+      "refusal_reason": null,
+      "answer": "Le préavis de résiliation est de 60 jours.  [service_agreement.pdf, p. 4]",
+      "sources": [
+        "service_agreement.pdf p. 4"
+      ],
+      "critic": [],
+      "seconds": 16.1
+    },
+    {
+      "id": "start-en",
+      "language": "en",
+      "question": "When does the agreement start?",
+      "right": true,
+      "citation_right": true,
+      "answer_language": "en",
+      "refused": false,
+      "refusal_reason": null,
+      "answer": "The agreement starts on 1 March 2026. [service_agreement.pdf, p. 1]",
+      "sources": [
+        "service_agreement.pdf p. 1"
+      ],
+      "critic": [],
+      "seconds": 17.1
+    },
+    {
+      "id": "monthly-fee-fr",
+      "language": "fr",
+      "question": "Quel est le montant de la redevance mensuelle ?",
+      "right": true,
+      "citation_right": true,
+      "answer_language": "fr",
+      "refused": false,
+      "refusal_reason": null,
+      "answer": "La redevance mensuelle est de 12 500 USD.  [service_agreement.pdf, p. 3]",
+      "sources": [
+        "service_agreement.pdf p. 3"
+      ],
+      "critic": [],
+      "seconds": 3.4
+    },
+    {
+      "id": "late-interest-fr",
+      "language": "fr",
+      "question": "Quel est le taux d'intérêt en cas de retard de paiement ?",
+      "right": true,
+      "citation_right": true,
+      "answer_language": "fr",
+      "refused": false,
+      "refusal_reason": null,
+      "answer": "Le taux d’intérêt en cas de retard de paiement est de 1,5 % par mois. [invoice_HDS-INV-2026-0042.pdf, p. 1] [service_agreement.pdf, p. 3]",
+      "sources": [
+        "invoice_HDS-INV-2026-0042.pdf p. 1",
+        "service_agreement.pdf p. 3",
+        "invoice_HDS-INV-2026-0042.pdf p. 1"
+      ],
+      "critic": [],
+      "seconds": 2.5
+    },
+    {
+      "id": "invoiced-q2-en",
+      "language": "en",
+      "question": "How much was invoiced in Q2 2026?",
+      "right": true,
+      "citation_right": true,
+      "answer_language": null,
+      "refused": false,
+      "refusal_reason": null,
+      "answer": "USD 45 370,00.  [quarterly_review_HDS_Q2_2026.pptx, p. 5]  [quarterly_review_HDS_Q2_2026.pptx, p. 2]  [compte_rendu_copil_HDS_2026-07.pdf, p. 1]",
+      "sources": [
+        "quarterly_review_HDS_Q2_2026.pptx p. 5",
+        "quarterly_review_HDS_Q2_2026.pptx p. 2",
+        "compte_rendu_copil_HDS_2026-07.pdf p. 1"
+      ],
+      "critic": [],
+      "seconds": 2.5
+    },
+    {
+      "id": "availability-may-fr",
+      "language": "fr",
+      "question": "Quelle était la disponibilité de la plateforme en mai 2026 ?",
+      "right": true,
+      "citation_right": true,
+      "answer_language": "fr",
+      "refused": false,
+      "refusal_reason": null,
+      "answer": "La disponibilité de la plateforme en mai 2026 était de 99,38 %  [quarterly_review_HDS_Q2_2026.pptx, p. 3].",
+      "sources": [
+        "quarterly_review_HDS_Q2_2026.pptx p. 3"
+      ],
+      "critic": [],
+      "seconds": 2.5
+    },
+    {
+      "id": "credit-may-en",
+      "language": "en",
+      "question": "What service credit was granted for May 2026?",
+      "right": true,
+      "citation_right": true,
+      "answer_language": null,
+      "refused": false,
+      "refusal_reason": null,
+      "answer": "USD 625.00  [quarterly_review_HDS_Q2_2026.pptx, p. 6] [compte_rendu_copil_HDS_2026-07.pdf, p. 1]",
+      "sources": [
+        "quarterly_review_HDS_Q2_2026.pptx p. 6",
+        "compte_rendu_copil_HDS_2026-07.pdf p. 1"
+      ],
+      "critic": [],
+      "seconds": 4.3
+    },
+    {
+      "id": "credit-may-fr",
+      "language": "fr",
+      "question": "Quel est le montant de l'avoir accordé pour le mois de mai ?",
+      "right": true,
+      "citation_right": true,
+      "answer_language": "fr",
+      "refused": false,
+      "refusal_reason": null,
+      "answer": "Le montant de l’avoir accordé pour le mois de mai est de 625,00 USD.  [compte_rendu_copil_HDS_2026-07.pdf, p. 1]",
+      "sources": [
+        "compte_rendu_copil_HDS_2026-07.pdf p. 1"
+      ],
+      "critic": [
+        "unsupported_claim (model)"
+      ],
+      "seconds": 3.0
+    },
+    {
+      "id": "marseille-fr",
+      "language": "fr",
+      "question": "Combien coûte le raccordement de l'entrepôt de Marseille ?",
+      "right": true,
+      "citation_right": true,
+      "answer_language": "fr",
+      "refused": false,
+      "refusal_reason": null,
+      "answer": "Le raccordement de l'entrepôt de Marseille coûte 17 100,00 USD.  [compte_rendu_copil_HDS_2026-07.pdf, p. 2]  [compte_rendu_copil_HDS_2026-07.pdf, p. 3]",
+      "sources": [
+        "compte_rendu_copil_HDS_2026-07.pdf p. 2",
+        "compte_rendu_copil_HDS_2026-07.pdf p. 3"
+      ],
+      "critic": [],
+      "seconds": 4.0
+    },
+    {
+      "id": "marseille-en",
+      "language": "en",
+      "question": "How much does connecting the Marseille warehouse cost?",
+      "right": true,
+      "citation_right": true,
+      "answer_language": "fr",
+      "refused": false,
+      "refusal_reason": null,
+      "answer": "Le raccordement de l’entrepôt de Marseille coûte 17 100,00 USD. [compte_rendu_copil_HDS_2026-07.pdf, p. 2] [compte_rendu_copil_HDS_2026-07.pdf, p. 3]",
+      "sources": [
+        "compte_rendu_copil_HDS_2026-07.pdf p. 2",
+        "compte_rendu_copil_HDS_2026-07.pdf p. 3"
+      ],
+      "critic": [],
+      "seconds": 2.4
+    },
+    {
+      "id": "certificates-fr",
+      "language": "fr",
+      "question": "Qui doit mettre en place l'alerte d'expiration des certificats ?",
+      "right": true,
+      "citation_right": true,
+      "answer_language": null,
+      "refused": false,
+      "refusal_reason": null,
+      "answer": "Antoine Lefèvre.  [compte_rendu_copil_HDS_2026-07.pdf, p. 3]",
+      "sources": [
+        "compte_rendu_copil_HDS_2026-07.pdf p. 3"
+      ],
+      "critic": [],
+      "seconds": 6.2
+    },
+    {
+      "id": "outage-en",
+      "language": "en",
+      "question": "What caused the outage in May 2026?",
+      "right": false,
+      "citation_right": null,
+      "answer_language": "fr",
+      "refused": false,
+      "refusal_reason": null,
+      "answer": "L’interruption de mai 2026 a été causée par une défaillance de stockage dans la région principale de Francfort, qui a rendu la plateforme indisponible pendant 4 h 37 min.  [quarterly_review_HDS_Q2_2026.pptx, p. 6] [compte_rendu_copil_HDS_2026-07.pdf, p. 2]",
+      "sources": [
+        "quarterly_review_HDS_Q2_2026.pptx p. 6",
+        "compte_rendu_copil_HDS_2026-07.pdf p. 2"
+      ],
+      "critic": [],
+      "seconds": 3.1
+    },
+    {
+      "id": "governing-law-fr",
+      "language": "fr",
+      "question": "Quel droit s'applique au contrat ?",
+      "right": true,
+      "citation_right": true,
+      "answer_language": "fr",
+      "refused": false,
+      "refusal_reason": null,
+      "answer": "Le contrat est régi par le droit d’Angleterre et du Pays de Galles.  [service_agreement.pdf, p. 6]",
+      "sources": [
+        "service_agreement.pdf p. 6"
+      ],
+      "critic": [],
+      "seconds": 2.1
+    },
+    {
+      "id": "invoice-total-en",
+      "language": "en",
+      "question": "What is the total amount of invoice HDS-INV-2026-0042?",
+      "right": true,
+      "citation_right": true,
+      "answer_language": "en",
+      "refused": false,
+      "refusal_reason": null,
+      "answer": "The total amount of invoice HDS‑INV‑2026‑0042 is USD 15,950.00. [invoice_HDS-INV-2026-0042.pdf, p. 1] [quarterly_review_HDS_Q2_2026.pptx, p. 5]",
+      "sources": [
+        "invoice_HDS-INV-2026-0042.pdf p. 1",
+        "quarterly_review_HDS_Q2_2026.pptx p. 5"
+      ],
+      "critic": [],
+      "seconds": 3.0
+    },
+    {
+      "id": "ceo-salary-en",
+      "language": "en",
+      "question": "What is the CEO's salary?",
+      "right": true,
+      "citation_right": null,
+      "answer_language": null,
+      "refused": true,
+      "refusal_reason": "no_relevant_passages",
+      "answer": "I could not find this information in the available documents.",
+      "sources": [],
+      "critic": [],
+      "seconds": 1.1
+    },
+    {
+      "id": "ceo-salary-fr",
+      "language": "fr",
+      "question": "Quel est le salaire du PDG ?",
+      "right": true,
+      "citation_right": null,
+      "answer_language": null,
+      "refused": true,
+      "refusal_reason": "not_found_by_model",
+      "answer": "I could not find this information in the available documents.",
+      "sources": [],
+      "critic": [],
+      "seconds": 1.4
+    },
+    {
+      "id": "revenue-en",
+      "language": "en",
+      "question": "What was Orion Freight's revenue in Q2 2026?",
+      "right": false,
+      "citation_right": null,
+      "answer_language": "en",
+      "refused": false,
+      "refusal_reason": null,
+      "answer": "Orion Freight’s revenue in Q2 2026 was USD 45,370.00.  [quarterly_review_HDS_Q2_2026.pptx, p. 2]",
+      "sources": [
+        "quarterly_review_HDS_Q2_2026.pptx p. 2"
+      ],
+      "critic": [
+        "unsupported_claim (model)"
+      ],
+      "seconds": 10.0
+    },
+    {
+      "id": "revenue-fr",
+      "language": "fr",
+      "question": "Quel est le chiffre d'affaires d'Orion au deuxième trimestre 2026 ?",
+      "right": false,
+      "citation_right": null,
+      "answer_language": "fr",
+      "refused": false,
+      "refusal_reason": null,
+      "answer": "Le chiffre d’affaires d’Orion au deuxième trimestre 2026 est de 45 370 USD.  [quarterly_review_HDS_Q2_2026.pptx, p. 2]  [quarterly_review_HDS_Q2_2026.pptx, p. 5]",
+      "sources": [
+        "quarterly_review_HDS_Q2_2026.pptx p. 2",
+        "quarterly_review_HDS_Q2_2026.pptx p. 5"
+      ],
+      "critic": [],
+      "seconds": 2.2
+    },
+    {
+      "id": "july-incidents-en",
+      "language": "en",
+      "question": "How many critical incidents were there in July 2026?",
+      "right": true,
+      "citation_right": null,
+      "answer_language": null,
+      "refused": true,
+      "refusal_reason": "not_found_by_model",
+      "answer": "I could not find this information in the available documents.",
+      "sources": [],
+      "critic": [],
+      "seconds": 1.7
+    },
+    {
+      "id": "it-budget-fr",
+      "language": "fr",
+      "question": "Quel est le budget informatique 2027 d'Orion ?",
+      "right": true,
+      "citation_right": null,
+      "answer_language": null,
+      "refused": true,
+      "refusal_reason": "not_found_by_model",
+      "answer": "I could not find this information in the available documents.",
+      "sources": [],
+      "critic": [],
+      "seconds": 1.7
+    }
+  ],
+  "extractions": [
+    {
+      "id": "invoice",
+      "file": "invoice_HDS-INV-2026-0042.pdf",
+      "refused": false,
+      "fields_right": "7 of 7",
+      "fields": [
+        {
+          "name": "invoice_number",
+          "value": "HDS-INV-2026-0042",
+          "right": true
+        },
+        {
+          "name": "invoice_date",
+          "value": "1 April 2026",
+          "right": true
+        },
+        {
+          "name": "due_date",
+          "value": "1 May 2026",
+          "right": true
+        },
+        {
+          "name": "total_amount",
+          "value": "15,950.00",
+          "right": true
+        },
+        {
+          "name": "currency",
+          "value": "USD",
+          "right": true
+        },
+        {
+          "name": "vendor",
+          "value": "Helix Data Services Ltd.",
+          "right": true
+        },
+        {
+          "name": "customer",
+          "value": "Orion Freight Co. - Accounts Payable",
+          "right": true
+        }
+      ],
+      "critic": [],
+      "seconds": 2.5
+    },
+    {
+      "id": "contract",
+      "file": "service_agreement.pdf",
+      "refused": false,
+      "fields_right": "8 of 8",
+      "fields": [
+        {
+          "name": "agreement_number",
+          "value": "HDS-2026-014",
+          "right": true
+        },
+        {
+          "name": "provider",
+          "value": "Helix Data Services Ltd.",
+          "right": true
+        },
+        {
+          "name": "client",
+          "value": "Orion Freight Co.",
+          "right": true
+        },
+        {
+          "name": "effective_date",
+          "value": "1 March 2026",
+          "right": true
+        },
+        {
+          "name": "initial_term",
+          "value": "24 months",
+          "right": true
+        },
+        {
+          "name": "convenience_notice",
+          "value": "60 days' written notice",
+          "right": true
+        },
+        {
+          "name": "non_renewal_notice",
+          "value": "90 days",
+          "right": true
+        },
+        {
+          "name": "governing_law",
+          "value": "laws of England and Wales",
+          "right": true
+        }
+      ],
+      "critic": [],
+      "seconds": 3.2
+    }
+  ]
+}

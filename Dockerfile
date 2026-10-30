@@ -59,6 +59,10 @@ RUN python -m scripts.seed_demo demo_documents
 
 # Online configuration. The two keys are NOT here: they are secrets given to
 # the container at run time (LLM_API_KEY for Groq, EMBEDDING_API_KEY for Gemini).
+# The retrieval values were measured for Gemini on 2026-10-30 (probe_scores,
+# probe_margin): its scores are not on the same scale as bge-m3 locally. The
+# threshold keeps every right passage (lowest 0.572); the gap is off (1), as
+# every gap tried removed one right passage.
 ENV DEMO_MODE=true \
     STATIC_DIR=/app/static \
     LLM_PROVIDER=openai_compatible \
@@ -66,7 +70,9 @@ ENV DEMO_MODE=true \
     LLM_MODEL=openai/gpt-oss-20b \
     EMBEDDING_PROVIDER=openai_compatible \
     EMBEDDING_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai \
-    EMBEDDING_MODEL=gemini-embedding-001
+    EMBEDDING_MODEL=gemini-embedding-001 \
+    RETRIEVAL_MIN_SCORE=0.56 \
+    RETRIEVAL_MAX_GAP=1
 
 # The hosting platform gives the port in $PORT (8000 when run locally).
 EXPOSE 8000
