@@ -15,6 +15,11 @@ Usage, from backend/ while the server and Ollama are running:
     python -m scripts.run_eval
     python -m scripts.run_eval --url http://localhost:8080 --label docker
     python -m scripts.run_eval --no-extractions
+    python -m scripts.run_eval --url http://localhost:8000 --label online --pause 20
+        --output ../eval/results_online.json    (the online demo, one line)
+
+--pause waits between two requests that call the language model, so an online
+provider with a per-minute limit (Groq: 8,000 tokens per minute) is not exceeded.
 """
 
 import argparse
@@ -49,6 +54,7 @@ from scripts.eval_scoring import (
 RESULTS_FILE = EVAL_FILE.parent / "results.json"
 Clock = Callable[[], float]
 Log = Callable[[str], None]
+Sleep = Callable[[float], None]
 
 
 class EvalRunError(Exception):
@@ -73,9 +79,7 @@ def demo_document_ids(client: httpx2.Client, files: Sequence[str]) -> dict[str, 
     return ids
 
 
-def ask(
-    client: httpx2.Client, case: AskCase, document_ids: list[str], clock: Clock
-) -> AskScore:
+def ask(client: httpx2.Client, case: AskCase, document_ids: list[str], clock: Clock) -> AskScore:
     start = clock()
     response = client.post(
         "/api/ask", json={"question": case.question, "document_ids": document_ids}
@@ -88,9 +92,7 @@ def extract(
     client: httpx2.Client, session_id: str, case: ExtractCase, document_id: str, clock: Clock
 ) -> ExtractScore:
     start = clock()
-    response = client.post(
-        f"/api/sessions/{session_id}/extract", json={"document_id": document_id}
-    )
+    response = client.post(f"/api/sessions/{session_id}/extract", json={"document_id": document_id})
     response.raise_for_status()
     answer = response.json()["answer"]
     review = answer.get("review") or {"issues": []}
@@ -133,13 +135,28 @@ def run(
     extractions: bool = True,
     clock: Clock = time.perf_counter,
     log: Log = print,
+    pause: float = 0.0,
+    sleep: Sleep = time.sleep,
 ) -> tuple[list[AskScore], list[ExtractScore]]:
-    """Ask every question, then run every extraction (in one new session)."""
+    """Ask every question, then run every extraction (in one new session).
+
+    pause: seconds to wait before each request to the language model except
+    the first one (0: no wait, as before).
+    """
+    calls = 0
+
+    def wait_turn() -> None:
+        nonlocal calls
+        if calls > 0 and pause > 0:
+            sleep(pause)
+        calls += 1
+
     ids = demo_document_ids(client, eval_set.documents)
     all_ids = [document_id for found in ids.values() for document_id in found]
     log(f"Questions ({len(eval_set.questions)}), on {len(all_ids)} demo documents:")
     asks: list[AskScore] = []
     for case in eval_set.questions:
+        wait_turn()
         asked = ask(client, case, all_ids, clock)
         asks.append(asked)
         log(ask_line(asked))
@@ -152,13 +169,14 @@ def run(
         log(f"Extractions ({len(eval_set.extractions)}), in session {session_id}:")
         for extract_case in eval_set.extractions:
             document_id = ids[extract_case.file][0]
+            wait_turn()
             extracted = extract(client, session_id, extract_case, document_id, clock)
             extracts.append(extracted)
             log(extract_line(extracted))
     return asks, extracts
 
 
-def context(url: str, label: str, extractions: bool) -> dict[str, Any]:
+def context(url: str, label: str, extractions: bool, pause: float = 0.0) -> dict[str, Any]:
     """Where and when the evaluation ran, with the local settings for reference."""
     settings = get_settings()
     return {
@@ -166,6 +184,7 @@ def context(url: str, label: str, extractions: bool) -> dict[str, Any]:
         "url": url,
         "date": datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC"),
         "extractions": extractions,
+        "pause_seconds": pause,
         "local_settings": {
             "llm_model": settings.llm_model,
             "embedding_model": settings.embedding_model,
@@ -188,20 +207,28 @@ def main() -> int:
     parser.add_argument(
         "--no-extractions", action="store_true", help="skip the extractions (no session created)"
     )
+    parser.add_argument(
+        "--pause",
+        type=float,
+        default=0.0,
+        help="seconds to wait between two model requests (online free tier: 20)",
+    )
     args = parser.parse_args()
+    if args.pause < 0:
+        parser.error("--pause must be 0 or more")
     eval_set = load_eval_set()
     extractions = not args.no_extractions
 
     start = time.perf_counter()
     with httpx2.Client(base_url=args.url, timeout=300.0) as client:
         try:
-            asks, extracts = run(client, eval_set, extractions=extractions)
+            asks, extracts = run(client, eval_set, extractions=extractions, pause=args.pause)
         except (httpx2.HTTPError, EvalRunError) as error:
             print(f"Evaluation stopped: {error}", file=sys.stderr)
             return 1
     print(f"\nScore ({args.label}, {time.perf_counter() - start:.0f} s)")
     print("\n".join(summary_lines(summarize(asks, extracts))))
-    run_context = context(args.url, args.label, extractions)
+    run_context = context(args.url, args.label, extractions, args.pause)
     write_results(args.output, results_json(asks, extracts, run_context))
     print(f"\nDetail saved to {args.output}")
     return 0

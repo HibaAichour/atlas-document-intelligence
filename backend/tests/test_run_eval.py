@@ -138,6 +138,33 @@ def test_run_without_extractions_creates_no_session() -> None:
     assert all(path != "/api/sessions" for _, path, _ in server.requests)
 
 
+def test_pause_waits_between_two_model_requests() -> None:
+    server = FakeServer()
+    waits: list[tuple[float, int]] = []  # (seconds, model requests already sent)
+
+    def sleep(seconds: float) -> None:
+        sent = sum(
+            path in ("/api/ask", "/api/sessions/s1/extract") for _, path, _ in server.requests
+        )
+        waits.append((seconds, sent))
+
+    with client_for(server) as client:
+        run(client, EVAL_SET, log=lambda line: None, pause=20.0, sleep=sleep)
+
+    # Two questions and one extraction: a wait before the 2nd and the 3rd request only.
+    assert waits == [(20.0, 1), (20.0, 2)]
+
+
+def test_no_pause_by_default() -> None:
+    def sleep(seconds: float) -> None:
+        raise AssertionError("run() waited although no pause was asked")
+
+    with client_for(FakeServer()) as client:
+        asks, extracts = run(client, EVAL_SET, log=lambda line: None, sleep=sleep)
+    assert len(asks) == 2
+    assert len(extracts) == 1
+
+
 def test_a_server_error_is_raised() -> None:
     transport = httpx2.MockTransport(lambda request: httpx2.Response(503, json={"detail": "x"}))
     with (
@@ -159,6 +186,8 @@ def test_context_and_results_file(tmp_path: Path) -> None:
     run_context = context("http://localhost:8080", "docker", extractions=True)
     assert run_context["label"] == "docker"
     assert run_context["local_settings"]["retrieval_max_gap"] == pytest.approx(0.05)
+    assert run_context["pause_seconds"] == 0.0
+    assert context("http://localhost:8000", "online", True, 20.0)["pause_seconds"] == 20.0
     path = tmp_path / "results.json"
     write_results(path, {"summary": {"questions": "1 of 2 (50%)"}, "note": "préavis"})
     assert json.loads(path.read_text(encoding="utf-8"))["note"] == "préavis"
