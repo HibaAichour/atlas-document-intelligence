@@ -15,7 +15,7 @@ import { useDocuments } from './hooks/useDocuments'
 import { useSessions } from './hooks/useSessions'
 import { restoreMessages } from './lib/chat'
 import type { OpenSource } from './lib/citations'
-import { uploadsAllowed } from './lib/config'
+import { llmProviderOf, uploadsAllowed } from './lib/config'
 import { useMessages } from './lib/i18n'
 import { restoredSelection } from './lib/selection'
 
@@ -31,6 +31,7 @@ function App() {
     selectedIds: documents.selectedIds,
     ensureSession: sessions.ensureSession,
     onSaved: sessions.saved,
+    provider: llmProviderOf(config),
   })
 
   /** Show an opened session (its messages and documents), or a new empty one. */

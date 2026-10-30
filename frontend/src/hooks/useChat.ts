@@ -14,6 +14,7 @@ import {
   toExtractResponse,
   type ChatMessage,
 } from '../lib/chat'
+import type { LlmProvider } from '../lib/config'
 import { apiErrorText } from '../lib/errors'
 import { useMessages } from '../lib/i18n'
 
@@ -23,9 +24,11 @@ interface ChatOptions {
   ensureSession: () => Promise<string>
   // Called with the updated session (title, message count) once the answer is saved.
   onSaved: (session: SessionSummary) => void
+  // The language model of the deployment, to explain a service that is down.
+  provider: LlmProvider
 }
 
-export function useChat({ selectedIds, ensureSession, onSaved }: ChatOptions) {
+export function useChat({ selectedIds, ensureSession, onSaved, provider }: ChatOptions) {
   const t = useMessages()
   const [messages, dispatch] = useReducer(chatReducer, [])
   // Each message needs a unique key for React; a counter is enough here.
@@ -52,7 +55,7 @@ export function useChat({ selectedIds, ensureSession, onSaved }: ChatOptions) {
       dispatch({ type: 'answered', answerId, response, seconds, saved: ref })
       onSaved(saved.session)
     } catch (error) {
-      dispatch({ type: 'failed', answerId, error: apiErrorText(error, 'ask', t) })
+      dispatch({ type: 'failed', answerId, error: apiErrorText(error, 'ask', t, provider) })
     }
   }
 
@@ -85,7 +88,7 @@ export function useChat({ selectedIds, ensureSession, onSaved }: ChatOptions) {
       dispatch({ type: 'extracted', answerId, response, seconds, saved: ref })
       onSaved(saved.session)
     } catch (error) {
-      dispatch({ type: 'failed', answerId, error: apiErrorText(error, 'extract', t) })
+      dispatch({ type: 'failed', answerId, error: apiErrorText(error, 'extract', t, provider) })
     }
   }
 

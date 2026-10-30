@@ -5,6 +5,7 @@
 // so it writes the message itself, as it does for refusals and for the Critic.
 
 import { ApiError } from '../api/client'
+import type { LlmProvider } from './config'
 import type { Messages } from './i18n'
 
 /** What the interface was doing when the call failed. */
@@ -24,8 +25,17 @@ export function errorText(error: unknown, fallback: string): string {
   return fallback
 }
 
-/** The message for an error of the API, from the operation and the HTTP status. */
-export function apiErrorText(error: unknown, operation: Operation, t: Messages): string {
+/** The message for an error of the API, from the operation and the HTTP status.
+ *
+ * provider tells which language model the deployment uses: a service that is
+ * down (503) is explained with Ollama locally, without it in the online demo.
+ */
+export function apiErrorText(
+  error: unknown,
+  operation: Operation,
+  t: Messages,
+  provider: LlmProvider = 'ollama',
+): string {
   if (!(error instanceof ApiError)) {
     return t.unexpectedError
   }
@@ -45,8 +55,11 @@ export function apiErrorText(error: unknown, operation: Operation, t: Messages):
       return operation === 'extract' ? t.errorDocumentNotReady : t.errorServer(error.status)
     case 422:
       return t.errorInvalidRequest
+    case 429:
+      // An online provider's free usage limit was reached (Groq or Gemini).
+      return t.errorRateLimited
     case 503:
-      return t.errorServiceDown
+      return provider === 'ollama' ? t.errorServiceDown : t.errorServiceDownOnline
     default:
       return t.errorServer(error.status)
   }

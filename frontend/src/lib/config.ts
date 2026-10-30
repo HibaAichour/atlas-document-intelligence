@@ -24,3 +24,15 @@ export function uploadsAllowed(state: ConfigState): boolean {
       return true
   }
 }
+
+/** The language model of the deployment: Ollama locally, an online API in the demo. */
+export type LlmProvider = AppConfig['llm_provider']
+
+/** The provider named by the configuration, used to explain a service that is down.
+ *
+ * 'ollama' while the configuration is loading or when it cannot be read: the
+ * message then keeps its local hint ("Is Ollama running?"), as before.
+ */
+export function llmProviderOf(state: ConfigState): LlmProvider {
+  return state.kind === 'loaded' ? state.config.llm_provider : 'ollama'
+}

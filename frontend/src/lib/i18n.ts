@@ -164,6 +164,9 @@ const en = {
   errorUnsupportedFile:
     'This file cannot be read: accepted files are PDF, Word (.docx), PowerPoint (.pptx), PNG and JPG.',
   errorServiceDown: 'The language model or the search service is not responding. Is Ollama running?',
+  errorServiceDownOnline:
+    'The online language model or search service is not responding. Please try again later.',
+  errorRateLimited: 'Free usage limit reached. Please try again in a minute.',
   errorDocumentNotReady: 'This document cannot be analysed: it is not ready or contains no text.',
   errorNotFound: 'This item no longer exists. Reload the page.',
   errorInvalidRequest: 'The request was refused as invalid.',
@@ -345,6 +348,9 @@ const fr: Messages = {
     'Ce fichier ne peut pas être lu\u00a0: les fichiers acceptés sont PDF, Word (.docx), PowerPoint (.pptx), PNG et JPG.',
   errorServiceDown:
     'Le modèle de langue ou le service de recherche ne répond pas. Ollama est-il lancé\u00a0?',
+  errorServiceDownOnline:
+    'Le modèle de langue ou le service de recherche en ligne ne répond pas. Réessayez plus tard.',
+  errorRateLimited: 'Limite gratuite atteinte, réessayez dans une minute.',
   errorDocumentNotReady:
     'Ce document ne peut pas être analysé\u00a0: il n’est pas prêt ou ne contient pas de texte.',
   errorNotFound: 'Cet élément n’existe plus. Rechargez la page.',
