@@ -92,7 +92,7 @@ Cocher les cases au fur et à mesure. Durée totale estimée : 38 à 50 jours de
 - [x] Docker de production
 - [ ] Déploiement sur Render (offre gratuite) avec LLM externe
 - [x] Documents de démo préchargés
-- [ ] Évaluation en ligne (run_eval) et scénario 1 avec gpt-oss-20b
+- [x] Évaluation en ligne (run_eval) et scénario 1 avec gpt-oss-20b (18 sur 21, 15 champs sur 15)
 - **Fin** : lien public fonctionnel
 
 ## Étape 13 : README et vidéo (2 à 3 jours)
