@@ -5,11 +5,19 @@ from typing import Any
 
 import httpx2
 
-from app.core.http_errors import describe_http_error
+from app.core.http_errors import describe_http_error, is_too_many_requests
 
 
 class EmbeddingError(Exception):
-    """Raised when a provider cannot return embeddings."""
+    """Raised when a provider cannot return embeddings.
+
+    rate_limited is True when the provider refused the call because a usage
+    limit was reached (HTTP 429): the API then answers 429, not 503.
+    """
+
+    def __init__(self, message: str, *, rate_limited: bool = False) -> None:
+        super().__init__(message)
+        self.rate_limited = rate_limited
 
 
 class EmbeddingProvider(ABC):
@@ -35,7 +43,10 @@ def _post_json(
         response.raise_for_status()
         return response.json()
     except httpx2.HTTPError as exc:
-        raise EmbeddingError(f"Embedding request failed: {describe_http_error(exc)}") from exc
+        raise EmbeddingError(
+            f"Embedding request failed: {describe_http_error(exc)}",
+            rate_limited=is_too_many_requests(exc),
+        ) from exc
     except ValueError as exc:
         raise EmbeddingError("Embedding API returned a response that is not valid JSON") from exc
 

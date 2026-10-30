@@ -2,10 +2,11 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_db, get_retriever
+from app.api.errors import service_error
 from app.api.schemas import SearchRequest, SearchResponse, SearchResultOut
 from app.core.config import Settings, get_settings
 from app.db.repositories import DocumentRepository
@@ -34,7 +35,7 @@ def search(
             DocumentRepository(db), request.query, top_k, request.document_ids
         )
     except RetrievalError as error:
-        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(error)) from error
+        raise service_error(error, str(error)) from error
     return SearchResponse(
         query=request.query,
         results=[SearchResultOut.model_validate(passage) for passage in passages],

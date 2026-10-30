@@ -13,3 +13,11 @@ def describe_http_error(exc: httpx2.HTTPError) -> str:
             detail = detail[:MAX_DETAIL_LENGTH] + "..."
         return f"HTTP {exc.response.status_code} from {exc.request.url}: {detail or 'no details'}"
     return str(exc)
+
+
+def is_too_many_requests(exc: httpx2.HTTPError) -> bool:
+    """True when the server answered 429 Too Many Requests (a usage limit was reached)."""
+    return (
+        isinstance(exc, httpx2.HTTPStatusError)
+        and exc.response.status_code == httpx2.codes.TOO_MANY_REQUESTS
+    )

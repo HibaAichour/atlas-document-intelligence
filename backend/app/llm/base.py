@@ -16,7 +16,15 @@ class ChatMessage:
 
 
 class LLMError(Exception):
-    """Raised when a provider cannot return a completion."""
+    """Raised when a provider cannot return a completion.
+
+    rate_limited is True when an online provider refused the call because a
+    usage limit was reached (HTTP 429): the API then answers 429, not 503.
+    """
+
+    def __init__(self, message: str, *, rate_limited: bool = False) -> None:
+        super().__init__(message)
+        self.rate_limited = rate_limited
 
 
 class LLMProvider(ABC):

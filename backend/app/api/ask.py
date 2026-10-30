@@ -3,11 +3,12 @@
 from collections.abc import Sequence
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.agents.orchestrator import Orchestrator
 from app.api.dependencies import get_db, get_orchestrator
+from app.api.errors import service_error
 from app.api.schemas import AgentRunOut, AskRequest, AskResponse, CitationOut, ReviewOut
 from app.core.config import Settings, get_settings
 from app.db.repositories import DocumentRepository
@@ -22,26 +23,25 @@ AppSettings = Annotated[Settings, Depends(get_settings)]
 AppOrchestrator = Annotated[Orchestrator, Depends(get_orchestrator)]
 
 
-def answer_or_503(
+def answer_or_error(
     orchestrator: Orchestrator,
     db: Session,
     question: str,
     top_k: int,
     document_ids: Sequence[str] | None,
 ) -> AnswerResult:
-    """Run the ask plan and turn an unreachable service into an error 503.
+    """Run the ask plan and turn a service that did not answer into an HTTP error.
 
+    429 when an online provider's usage limit was reached, 503 otherwise.
     Shared by POST /api/ask and POST /api/sessions/{id}/ask, so both routes
     refuse and fail in exactly the same way.
     """
     try:
         return orchestrator.ask(DocumentRepository(db), question, top_k, document_ids)
     except RetrievalError as error:
-        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(error)) from error
+        raise service_error(error, str(error)) from error
     except LLMError as error:
-        raise HTTPException(
-            status.HTTP_503_SERVICE_UNAVAILABLE, f"Answer generation failed: {error}"
-        ) from error
+        raise service_error(error, f"Answer generation failed: {error}") from error
 
 
 # Plain "def": the embedding and the LLM calls block, so it runs in a thread pool.
@@ -52,11 +52,12 @@ def ask(
     """Answer the question from the documents, citing document and page, or refuse.
 
     A refusal is a normal answer (status 200, status "refused"). An error 503
-    means the embedding service or the language model could not be reached.
+    means the embedding service or the language model could not be reached,
+    an error 429 that an online provider's usage limit was reached.
     Nothing is saved: use POST /api/sessions/{id}/ask to keep the conversation.
     """
     top_k = request.top_k or settings.retrieval_top_k
-    result = answer_or_503(orchestrator, db, request.question, top_k, request.document_ids)
+    result = answer_or_error(orchestrator, db, request.question, top_k, request.document_ids)
 
     return AskResponse(
         question=result.question,

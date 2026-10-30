@@ -6,8 +6,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.agents.orchestrator import ExtractOutcome, Orchestrator
-from app.api.ask import answer_or_503
+from app.api.ask import answer_or_error
 from app.api.dependencies import get_db, get_orchestrator
+from app.api.errors import service_error
 from app.api.schemas import (
     AskRequest,
     CitationOut,
@@ -94,10 +95,11 @@ def get_ready_document(db: Session, document_id: str) -> Document:
     return document
 
 
-def extract_or_503(orchestrator: Orchestrator, db: Session, document: Document) -> ExtractOutcome:
+def extract_or_error(orchestrator: Orchestrator, db: Session, document: Document) -> ExtractOutcome:
     """Run the extract plan and turn its failures into clear HTTP errors.
 
-    No retrieval runs in this plan, so only the language model can be down (503).
+    No retrieval runs in this plan, so only the language model can fail:
+    429 when an online provider's usage limit was reached, 503 otherwise.
     A ready document with no extracted page cannot be read (409).
     """
     try:
@@ -107,9 +109,7 @@ def extract_or_503(orchestrator: Orchestrator, db: Session, document: Document) 
             status.HTTP_409_CONFLICT, "Document has no extracted text to read."
         ) from error
     except LLMError as error:
-        raise HTTPException(
-            status.HTTP_503_SERVICE_UNAVAILABLE, f"Extraction failed: {error}"
-        ) from error
+        raise service_error(error, f"Extraction failed: {error}") from error
 
 
 def exchange_response(
@@ -163,15 +163,15 @@ def ask_in_session(
 ) -> SessionAskResponse:
     """Answer like POST /api/ask, then save the question, the answer and the documents.
 
-    A refusal is saved like any answer. On an error 503 nothing is saved,
-    so the question can simply be asked again.
+    A refusal is saved like any answer. On an error 503 or 429 nothing is
+    saved, so the question can simply be asked again.
     """
     repository = SessionRepository(db)
     # Checked before calling the model: an unknown session costs no LLM call.
     chat_session = get_session_or_404(repository, session_id)
 
     top_k = request.top_k or settings.retrieval_top_k
-    result = answer_or_503(orchestrator, db, request.question, top_k, request.document_ids)
+    result = answer_or_error(orchestrator, db, request.question, top_k, request.document_ids)
 
     if request.document_ids is None:
         # "Every document": record the documents that were actually searchable.
@@ -202,14 +202,14 @@ def extract_in_session(
     The user message is written by the code. A document that is neither an
     invoice nor a contract gives a saved refusal (unsupported_document).
     The documents selected for questions are not changed. On an error 503
-    nothing is saved, so the extraction can simply be run again.
+    or 429 nothing is saved, so the extraction can simply be run again.
     """
     repository = SessionRepository(db)
     # Both checked before calling the model: a wrong id costs no LLM call.
     chat_session = get_session_or_404(repository, session_id)
     document = get_ready_document(db, request.document_id)
 
-    outcome = extract_or_503(orchestrator, db, document)
+    outcome = extract_or_error(orchestrator, db, document)
 
     question, answer = repository.add_exchange(
         chat_session,

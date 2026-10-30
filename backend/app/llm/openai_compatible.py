@@ -4,7 +4,7 @@ from typing import Any
 
 import httpx2
 
-from app.core.http_errors import describe_http_error
+from app.core.http_errors import describe_http_error, is_too_many_requests
 from app.llm.base import ChatMessage, LLMError, LLMProvider
 
 
@@ -46,13 +46,14 @@ class OpenAICompatibleProvider(LLMProvider):
             payload["response_format"] = {"type": "json_object"}
 
         try:
-            response = self._client.post(
-                "/chat/completions", json=payload, headers=self._headers
-            )
+            response = self._client.post("/chat/completions", json=payload, headers=self._headers)
             response.raise_for_status()
             data = response.json()
         except httpx2.HTTPError as exc:
-            raise LLMError(f"LLM API request failed: {describe_http_error(exc)}") from exc
+            raise LLMError(
+                f"LLM API request failed: {describe_http_error(exc)}",
+                rate_limited=is_too_many_requests(exc),
+            ) from exc
         except ValueError as exc:
             raise LLMError("LLM API returned a response that is not valid JSON") from exc
 
