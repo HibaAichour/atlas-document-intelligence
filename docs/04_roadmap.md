@@ -89,9 +89,9 @@ Cocher les cases au fur et à mesure. Durée totale estimée : 38 à 50 jours de
 - **Fin** : score affiché
 
 ## Étape 12 : Déploiement (2 à 3 jours)
-- [ ] Docker de production
-- [ ] Déploiement Railway ou HF Spaces avec LLM externe
-- [ ] Documents de démo préchargés
+- [x] Docker de production
+- [ ] Déploiement sur Render (offre gratuite) avec LLM externe
+- [x] Documents de démo préchargés
 - [ ] Évaluation en ligne (run_eval) et scénario 1 avec gpt-oss-20b
 - **Fin** : lien public fonctionnel
 
