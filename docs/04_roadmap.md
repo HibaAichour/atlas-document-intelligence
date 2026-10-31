@@ -90,7 +90,7 @@ Cocher les cases au fur et à mesure. Durée totale estimée : 38 à 50 jours de
 
 ## Étape 12 : Déploiement (2 à 3 jours)
 - [x] Docker de production
-- [ ] Déploiement sur Render (offre gratuite) avec LLM externe
+- [x] Déploiement sur SnapDeploy (offre gratuite ; Render demandait une carte) avec LLM externe
 - [x] Documents de démo préchargés
 - [x] Évaluation en ligne (run_eval) et scénario 1 avec gpt-oss-20b (18 sur 21, 15 champs sur 15)
 - **Fin** : lien public fonctionnel
