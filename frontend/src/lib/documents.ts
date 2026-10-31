@@ -8,10 +8,6 @@ export function isUsable(document: DocumentInfo): boolean {
   return document.status === 'ready'
 }
 
-export function usableIds(documents: readonly DocumentInfo[]): string[] {
-  return documents.filter(isUsable).map((document) => document.id)
-}
-
 /** The short line shown under a file name in the document list. */
 export function describeDocument(document: DocumentInfo, t: Messages): string {
   if (document.status === 'failed') {
@@ -22,15 +18,4 @@ export function describeDocument(document: DocumentInfo, t: Messages): string {
   }
   const pages = t.pageCount(document.page_count)
   return document.ocr_used ? t.readWithOcr(pages) : pages
-}
-
-/** Return a new set with the id added if it was missing, removed if it was there. */
-export function toggleId(selected: ReadonlySet<string>, id: string): Set<string> {
-  const next = new Set(selected)
-  if (next.has(id)) {
-    next.delete(id)
-  } else {
-    next.add(id)
-  }
-  return next
 }

@@ -17,14 +17,6 @@ export type Operation =
   | 'ask'
   | 'extract'
 
-/** Return a message that can be shown to the user for any thrown value. */
-export function errorText(error: unknown, fallback: string): string {
-  if (error instanceof Error && error.message !== '') {
-    return error.message
-  }
-  return fallback
-}
-
 /** The message for an error of the API, from the operation and the HTTP status.
  *
  * provider tells which language model the deployment uses: a service that is

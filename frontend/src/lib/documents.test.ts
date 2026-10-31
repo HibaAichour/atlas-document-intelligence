@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { DocumentInfo } from '../api/types'
-import { describeDocument, isUsable, toggleId, usableIds } from './documents'
-import { errorText } from './errors'
+import { describeDocument, isUsable } from './documents'
 import { dictionaries } from './i18n'
 
 const t = dictionaries.en
@@ -46,33 +45,10 @@ describe('describeDocument', () => {
   })
 })
 
-describe('usable documents', () => {
-  it('keeps only the documents that are ready', () => {
-    const documents = [
-      makeDocument({ id: 'a' }),
-      makeDocument({ id: 'b', status: 'failed' }),
-      makeDocument({ id: 'c', status: 'processing' }),
-      makeDocument({ id: 'd' }),
-    ]
-    expect(usableIds(documents)).toEqual(['a', 'd'])
-    expect(isUsable(documents[1])).toBe(false)
-  })
-})
-
-describe('toggleId', () => {
-  it('adds a missing id and removes a present one, without changing the original', () => {
-    const original = new Set(['a'])
-
-    expect([...toggleId(original, 'b')]).toEqual(['a', 'b'])
-    expect([...toggleId(original, 'a')]).toEqual([])
-    expect([...original]).toEqual(['a'])
-  })
-})
-
-describe('errorText', () => {
-  it('uses the message of an error, or the fallback', () => {
-    expect(errorText(new Error('Disk full'), 'Fallback')).toBe('Disk full')
-    expect(errorText('not an error', 'Fallback')).toBe('Fallback')
-    expect(errorText(new Error(''), 'Fallback')).toBe('Fallback')
+describe('isUsable', () => {
+  it('accepts only the documents that are ready', () => {
+    expect(isUsable(makeDocument({}))).toBe(true)
+    expect(isUsable(makeDocument({ status: 'failed' }))).toBe(false)
+    expect(isUsable(makeDocument({ status: 'processing' }))).toBe(false)
   })
 })
