@@ -1,0 +1,65 @@
+# Build the production image (Dockerfile at the root) and publish it to the
+# GitHub Container Registry, so the online demo host pulls a public image and
+# needs no access to the GitHub account.
+# The image is built for ARM64, the architecture the demo host runs.
+# No API key is involved: the Groq and Gemini keys are given to the container
+# by the host at run time.
+
+name: Publish demo image
+
+on:
+  push:
+    branches: [main]
+    # These files are not in the image: no rebuild when only they change.
+    paths-ignore:
+      - "docs/**"
+      - "eval/**"
+      - "**.md"
+  # "Run workflow" button in the Actions tab, to rebuild without a commit.
+  workflow_dispatch:
+
+# Only one build at a time; a newer push cancels an older build.
+concurrency:
+  group: publish-image
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    # A native ARM64 machine (free for public repositories): no emulation.
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 45
+    # Least privilege: read the code, write the image to the registry.
+    permissions:
+      contents: read
+      packages: write
+    env:
+      # Registry names must be lowercase.
+      IMAGE: ghcr.io/hibaaichour/atlas-document-intelligence
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to the GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push the image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/arm64
+          push: true
+          # latest: the tag the host deploys; sha-<commit>: the exact version.
+          tags: |
+            ${{ env.IMAGE }}:latest
+            ${{ env.IMAGE }}:sha-${{ github.sha }}
+          # Reuse the heavy layers (Tesseract, pip, npm) between builds.
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
