@@ -9,6 +9,9 @@ external APIs.
 
 **Live demo:** https://atlas-demo-0dffb.containers.snapdeploy.app
 
+**Demo video (1 min 38 s):** https://youtu.be/6Z7K7MAff-Y (cited answer, refusal,
+extraction checked by the Critic, Word export, French interface)
+
 > The demo runs on a free plan. After 15 minutes without visitors it goes to sleep:
 > the first visit wakes it up in about **one minute**. It contains four fictional
 > sample documents; uploads are disabled online.

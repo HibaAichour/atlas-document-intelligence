@@ -96,9 +96,9 @@ Cocher les cases au fur et à mesure. Durée totale estimée : 38 à 50 jours de
 - **Fin** : lien public fonctionnel
 
 ## Étape 13 : README et vidéo (2 à 3 jours)
-- [ ] README en anglais complet
-- [ ] Schéma d'architecture et captures
-- [ ] Vidéo de 1 à 2 minutes
+- [x] README en anglais complet
+- [x] Schéma d'architecture et captures
+- [x] Vidéo de 1 à 2 minutes (1 min 38 s, YouTube non répertoriée)
 - **Fin** : dépôt GitHub présentable
 
 ## Étape 14 : Candidatures
