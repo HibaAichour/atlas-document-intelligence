@@ -10,10 +10,10 @@ Règles de la V2 :
 - À la fin de chaque étape : README, `02_architecture.md` et CV mis à jour, uniquement avec ce qui est livré.
 
 ## Étape V2.0 : Préparation (0,5 jour)
-- [ ] Image `latest` publiée seulement pour un tag de version (workflow modifié), et non plus à chaque push sur `main`
-- [ ] Scénarios de démo vérifiés en ligne après le changement
-- [ ] Tag `v1.0.0` et GitHub Release « ATLAS V1 »
-- [ ] `05_roadmap_v2.md` ajouté
+- [x] Image `latest` publiée seulement pour un tag de version (workflow modifié), et non plus à chaque push sur `main`
+- [x] Scénarios de démo vérifiés en ligne après le changement
+- [x] Tag `v1.0.0` et GitHub Release « ATLAS V1 »
+- [x] `05_roadmap_v2.md` ajouté
 - **Fin** : un push sur `main` ne peut plus changer la démo en ligne
 
 ## Étape V2.1 : Tests dans la CI (1 jour)
