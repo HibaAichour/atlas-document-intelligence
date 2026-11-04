@@ -2,9 +2,11 @@
 
 Cocher les cases au fur et à mesure. Durée totale estimée : 38 à 50 jours de travail effectif.
 
+> Statut : V1 livrée le 2026-10-31 (étapes 0 à 13). Étape 14 terminée le 2026-11-04 ; la suite est dans `05_roadmap_v2.md`.
+
 ## Étape 0 : Préparer la machine (1 jour)
 - [x] Git, Python 3.11+, Node 20+, Docker Desktop, VS Code
-- [x] Ollama + modèle LLM (qwen2.5:3b, retenu après test comparatif) + nomic-embed-text
+- [x] Ollama + modèle LLM (qwen2.5:3b, retenu après test comparatif) + nomic-embed-text (remplacé par bge-m3 à l'étape 10 bis)
 - [x] Tesseract OCR
 - [x] Claude Code installé
 - **Fin** : `ollama run` répond dans le terminal
@@ -102,7 +104,8 @@ Cocher les cases au fur et à mesure. Durée totale estimée : 38 à 50 jours de
 - **Fin** : dépôt GitHub présentable
 
 ## Étape 14 : Candidatures
-- [ ] CV mis à jour (uniquement ce qui est implémenté)
-- [ ] Liens GitHub, démo, vidéo
-- [ ] Début des candidatures
-- [ ] Démarrage de la V2 en parallèle
+- [x] CV mis à jour (uniquement ce qui est implémenté)
+- [x] Liens GitHub, démo, vidéo
+- [x] Début des candidatures
+- [x] Démarrage de la V2 en parallèle (2026-11-04)
+- **Fin** : candidatures envoyées avec le CV à jour et les liens du dépôt, de la démo et de la vidéo
