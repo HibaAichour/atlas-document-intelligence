@@ -7,15 +7,14 @@
 
 name: Publish demo image
 
+# The online demo runs the "latest" image. To keep it stable while new work
+# lands on main, "latest" is only published for a version tag (vX.Y.Z),
+# never for a plain push to main.
 on:
   push:
-    branches: [main]
-    # These files are not in the image: no rebuild when only they change.
-    paths-ignore:
-      - "docs/**"
-      - "eval/**"
-      - "**.md"
-  # "Run workflow" button in the Actions tab, to rebuild without a commit.
+    tags: ["v*"]
+  # "Run workflow" button in the Actions tab: choose a version tag in "Use
+  # workflow from"; run on a branch, the job is skipped (see "if" below).
   workflow_dispatch:
 
 # Only one build at a time; a newer push cancels an older build.
@@ -25,6 +24,8 @@ concurrency:
 
 jobs:
   publish:
+    # Only for a version tag, also when started with "Run workflow".
+    if: startsWith(github.ref, 'refs/tags/v')
     # A native ARM64 machine (free for public repositories): no emulation.
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 45

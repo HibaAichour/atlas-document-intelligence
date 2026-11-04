@@ -50,7 +50,7 @@ Ollama ne tourne jamais dans Docker sur Mac : Docker n'y a pas accès au GPU Met
 ```
 GitHub
 ├── Dépôt (code)
-└── GitHub Actions : à chaque push sur main, construit l'image ARM64
+└── GitHub Actions : à chaque tag de version (vX.Y.Z), construit l'image ARM64
     └── GitHub Container Registry (image publique, sans aucune clé)
 
 SnapDeploy (offre gratuite : 512 Mo, 0,25 vCPU)

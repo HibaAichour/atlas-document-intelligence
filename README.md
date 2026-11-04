@@ -242,8 +242,8 @@ requires re-indexing (`python -m scripts.reindex`) and a new threshold.
   built (OCR included); their vectors are computed at every start, as the host has no
   persistent disk.
 - **Build:** [GitHub Actions](.github/workflows/publish-image.yml) builds the image for
-  ARM64 on every push to `main` and publishes it to the GitHub Container Registry. The image
-  contains no key.
+  ARM64 for each version tag (`vX.Y.Z`), not for every push to `main`, and publishes it
+  to the GitHub Container Registry. The image contains no key.
 - **Hosting:** SnapDeploy (free plan: 512 MB, 0.25 vCPU) runs the public image. The Groq and
   Gemini keys are given to the container by the host. The host has no access to the GitHub
   account.
