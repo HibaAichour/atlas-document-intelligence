@@ -101,7 +101,7 @@ atlas/
 ├── demo_documents/       # 4 fictional demo files (3 in English, 1 in French)
 ├── eval/                 # question set and results (local and online)
 ├── docs/                 # vision, architecture, decisions, roadmap
-├── .github/workflows/    # publish-image.yml (image of the online demo)
+├── .github/workflows/    # publish-image.yml (image of the online demo), tests.yml (CI checks)
 ├── Dockerfile            # production image (single container, online demo)
 ├── docker-compose.yml
 └── README.md

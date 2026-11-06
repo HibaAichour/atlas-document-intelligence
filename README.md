@@ -1,5 +1,7 @@
 # ATLAS
 
+[![Tests](https://github.com/HibaAichour/atlas-document-intelligence/actions/workflows/tests.yml/badge.svg)](https://github.com/HibaAichour/atlas-document-intelligence/actions/workflows/tests.yml)
+
 **Multi-agent document intelligence: answers from your documents, with the page they come from.**
 
 Upload professional documents (PDF, Word, PowerPoint, scanned images), ask questions or
@@ -262,6 +264,10 @@ The backend tests run without network or models: the language model and the embe
 replaced by fakes, while SQLite and Chroma are tested for real. The frontend tests cover the
 pure functions and the main components (React Testing Library).
 
+Both suites run in [GitHub Actions](.github/workflows/tests.yml) on every push and pull
+request to `main`, with Tesseract installed so that no OCR test is skipped, along with Ruff
+and ESLint. mypy is run but does not block yet: its known errors are not fixed.
+
 ## Known limitations
 
 **Models**
@@ -292,8 +298,7 @@ pure functions and the main components (React Testing Library).
 
 **Version 2 (planned, not implemented):** asynchronous ingestion with Redis and workers,
 replanning after the Critic's verdict, real-time progress over WebSocket, PostgreSQL and
-Qdrant, permissions and human review, benchmarks and ablation studies, tests in continuous
-integration.
+Qdrant, permissions and human review, benchmarks and ablation studies.
 
 ## License
 
