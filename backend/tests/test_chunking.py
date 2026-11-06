@@ -1,5 +1,7 @@
 """Tests for the page-bounded chunker (pure functions, no database, no network)."""
 
+from itertools import pairwise
+
 import pytest
 
 from app.ingestion.chunking import ChunkOptions, chunk_pages, split_text
@@ -70,7 +72,7 @@ def test_no_chunk_starts_or_ends_in_the_middle_of_a_word() -> None:
 
 def test_consecutive_chunks_overlap() -> None:
     pieces = split_text(make_text(60), ChunkOptions(chunk_size=300, chunk_overlap=100))
-    for previous, following in zip(pieces, pieces[1:]):
+    for previous, following in pairwise(pieces):
         first_words = " ".join(following.split()[:3])
         assert first_words in previous
 

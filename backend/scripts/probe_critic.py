@@ -45,8 +45,10 @@ ANSWERS: list[tuple[str, list[tuple[str, bool]]]] = [
         "When can the Agreement end, and what happens to the Client Data?",
         [
             (
-                "Either Party may terminate the Agreement with immediate effect if the other "
-                "Party becomes insolvent.",
+                (
+                    "Either Party may terminate the Agreement with immediate effect if the other "
+                    "Party becomes insolvent."
+                ),
                 True,
             ),
             (
@@ -63,13 +65,17 @@ ANSWERS: list[tuple[str, list[tuple[str, bool]]]] = [
         "What are the conditions of termination?",
         [
             (
-                "Either Party may terminate the Agreement with immediate effect if the other "
-                "Party is late with one payment.",
+                (
+                    "Either Party may terminate the Agreement with immediate effect if the other "
+                    "Party is late with one payment."
+                ),
                 False,
             ),
             (
-                "The Provider shall provide reasonable transition assistance for up to 60 days "
-                "after termination.",
+                (
+                    "The Provider shall provide reasonable transition assistance for up to 60 days "
+                    "after termination."
+                ),
                 True,
             ),
             (

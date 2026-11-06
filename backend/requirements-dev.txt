@@ -1,3 +1,6 @@
 -r requirements.txt
 pytest==9.1.1
 fpdf2==2.8.9
+# Lint and type checks, run by the CI (.github/workflows/tests.yml)
+ruff==0.17.3
+mypy==2.4.1

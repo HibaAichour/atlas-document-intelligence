@@ -1,0 +1,3 @@
+# Ruff settings for the backend (lint run by the CI and by hand).
+# The rule set is Ruff's default for the version pinned in requirements-dev.txt.
+line-length = 100
