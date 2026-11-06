@@ -37,10 +37,10 @@ jobs:
         working-directory: backend
     steps:
       - name: Check out the code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           # Same minor version as the production image.
           python-version: "3.13"
@@ -76,10 +76,10 @@ jobs:
         working-directory: frontend
     steps:
       - name: Check out the code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           # Same major version as the image that builds the frontend.
           node-version: "24"
