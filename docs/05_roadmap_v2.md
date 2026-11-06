@@ -17,9 +17,9 @@ Règles de la V2 :
 - **Fin** : un push sur `main` ne peut plus changer la démo en ligne
 
 ## Étape V2.1 : Tests dans la CI (1 jour)
-- [ ] Workflow `tests.yml` : pytest, Vitest, build et lint du frontend
-- [ ] Alertes ruff corrigées, ruff bloquant ; mypy non bloquant
-- [ ] Badge des tests dans le README
+- [x] Workflow `tests.yml` : pytest, Vitest, build et lint du frontend
+- [x] Alertes ruff corrigées, ruff bloquant ; mypy non bloquant
+- [x] Badge des tests dans le README
 - **Fin** : CI verte sur `main` (574 et 147 tests), en moins de 5 minutes avec le cache, et rouge sur un test volontairement cassé
 
 ## Étape V2.2 : Benchmarks et ablation study (4 à 6 jours)
